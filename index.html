@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Church Visitor Registration Prototype</title>
+<style>
+  :root{
+    --bg:#f4f1ea;
+    --panel:#ffffff;
+    --ink:#1f2937;
+    --muted:#6b7280;
+    --accent:#8b5e3c;
+    --accent2:#d8c1a5;
+    --line:#e5e7eb;
+    --success:#2f855a;
+    --danger:#b91c1c;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(180deg,#f8f6f0,#eee8de);
+    color:var(--ink);
+  }
+  .app{min-height:100vh;display:flex;flex-direction:column}
+  header{
+    padding:18px 24px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:rgba(255,255,255,.92);
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:10;
+    backdrop-filter:blur(10px);
+  }
+  .brand{display:flex;gap:12px;align-items:center}
+  .logo{
+    width:46px;height:46px;border-radius:50%;
+    background:var(--accent);color:white;
+    display:grid;place-items:center;font-weight:700;font-size:20px;
+  }
+  .brand h1{font-size:20px;margin:0}
+  .brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+  .top-actions{display:flex;gap:8px}
+  button{
+    border:none;border-radius:12px;padding:12px 16px;font-size:16px;font-weight:600;
+    cursor:pointer;
+  }
+  .btn-primary{background:var(--accent);color:white}
+  .btn-secondary{background:#eee9e2;color:var(--ink)}
+  .btn-ghost{background:white;border:1px solid var(--line);color:var(--ink)}
+  .btn-danger{background:#fff0f0;color:var(--danger)}
+  main{width:min(980px,94vw);margin:28px auto 48px}
+  .hero{text-align:center;margin-bottom:24px}
+  .hero h2{font-size:34px;margin:0 0 8px}
+  .hero p{color:var(--muted);font-size:17px;margin:0}
+  .card{
+    background:var(--panel);border-radius:22px;padding:26px;
+    box-shadow:0 10px 30px rgba(0,0,0,.07);
+    border:1px solid rgba(0,0,0,.04);
+  }
+  .section-title{font-size:18px;margin:4px 0 14px}
+  .grid{display:grid;gap:14px}
+  .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  label{font-size:14px;font-weight:600;display:block;margin-bottom:6px}
+  input,select,textarea{
+    width:100%;padding:14px;border:1px solid var(--line);
+    border-radius:12px;font-size:17px;background:white;color:var(--ink);
+    outline:none;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,94,60,.12)}
+  .divider{height:1px;background:var(--line);margin:24px 0}
+  .choice-row{display:flex;gap:12px;flex-wrap:wrap}
+  .choice{
+    flex:1;min-width:180px;border:1px solid var(--line);border-radius:14px;padding:14px;
+    display:flex;gap:10px;align-items:center;background:#fff;
+  }
+  .choice input{width:auto}
+  .optional{font-weight:400;color:var(--muted);font-size:12px}
+  .submit-wrap{display:flex;justify-content:center;margin-top:26px}
+  .submit-wrap button{min-width:260px;padding:15px 22px;font-size:18px}
+  .hidden{display:none!important}
+  .thankyou{text-align:center;padding:64px 24px}
+  .thankyou .check{
+    width:82px;height:82px;border-radius:50%;margin:0 auto 20px;
+    background:#e7f5ec;color:var(--success);display:grid;place-items:center;font-size:42px
+  }
+  .thankyou h2{font-size:34px;margin:0 0 10px}
+  .thankyou p{color:var(--muted);font-size:18px}
+  .dashboard{display:grid;gap:20px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .stat{background:white;border:1px solid var(--line);border-radius:16px;padding:18px}
+  .stat .num{font-size:30px;font-weight:700}
+  .stat .lab{color:var(--muted);font-size:13px;margin-top:4px}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:13px 10px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+  th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  .pill{display:inline-block;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:600;background:#f2eee8}
+  .pill.first{background:#efe6dc;color:#6f4528}
+  .pill.returning{background:#e8f1f8;color:#245472}
+  .welcome-preview{
+    background:#161616;color:white;border-radius:18px;padding:34px;text-align:center;
+    min-height:300px;display:flex;flex-direction:column;justify-content:center;
+  }
+  .welcome-preview h3{font-size:42px;margin:0 0 22px;letter-spacing:.02em}
+  .welcome-preview .names{font-size:28px;line-height:1.6}
+  .subtle{color:var(--muted);font-size:13px}
+  .admin-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .tab.active{background:var(--accent);color:white}
+  .camera-box{
+    border:2px dashed var(--accent2);border-radius:16px;padding:20px;text-align:center;background:#faf8f4
+  }
+  .camera-box video,.camera-box img{width:min(320px,100%);border-radius:14px;margin-top:12px}
+  footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
+  @media (max-width:760px){
+    .grid-2,.grid-3,.stats{grid-template-columns:1fr}
+    .top-actions{flex-wrap:wrap;justify-content:flex-end}
+    main{width:min(95vw,980px);margin-top:18px}
+    .card{padding:18px}
+    .hero h2{font-size:28px}
+    .welcome-preview h3{font-size:32px}
+    .welcome-preview .names{font-size:23px}
+    table{display:block;overflow:auto;white-space:nowrap}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <div class="logo">C</div>
+    <div>
+      <h1>Church Visitor Connect</h1>
+      <p>Prototype for pastor review</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button class="btn-secondary" onclick="showRegistration()">Registration</button>
+    <button class="btn-ghost" onclick="showAdmin()">Admin Preview</button>
+  </div>
+</header>
+
+<main>
+  <section id="registrationView">
+    <div class="hero">
+      <h2>Welcome! We’re glad you’re here.</h2>
+      <p>Please take a moment to tell us a little about yourself.</p>
+    </div>
+
+    <form id="visitorForm" class="card">
+      <h3 class="section-title">Your Information</h3>
+      <div class="grid grid-2">
+        <div><label>First Name</label><input id="firstName" required /></div>
+        <div><label>Last Name</label><input id="lastName" required /></div>
+      </div>
+
+      <div class="divider"></div>
+      <h3 class="section-title">Birthday <span class="optional">(year optional)</span></h3>
+      <div class="grid grid-3">
+        <div><label>Month</label>
+          <select id="birthMonth">
+            <option value="">Month</option>
+            <option>January</option><option>February</option><option>March</option><option>April</option>
+            <option>May</option><option>June</option><option>July</option><option>August</option>
+            <option>September</option><option>October</option><option>November</option><option>December</option>
+          </select>
+        </div>
+        <div><label>Day</label><input id="birthDay" type="number" min="1" max="31" placeholder="Day" /></div>
+        <div><label>Year <span class="optional">(optional)</span></label><input id="birthYear" type="number" min="1900" max="2100" placeholder="Year" /></div>
+      </div>
+
+      <div class="divider"></div>
+      <h3 class="section-title">Contact Information</h3>
+      <div class="grid grid-2">
+        <div><label>Phone Number</label><input id="phone" type="tel" /></div>
+        <div><label>Email Address</label><input id="email" type="email" /></div>
+      </div>
+      <div style="margin-top:14px"><label>Street Address</label><input id="street" /></div>
+      <div class="grid grid-3" style="margin-top:14px">
+        <div><label>City</label><input id="city" /></div>
+        <div><label>State</label><input id="state" /></div>
+        <div><label>ZIP Code</label><input id="zip" inputmode="numeric" /></div>
+      </div>
+
+      <div class="divider"></div>
+      <h3 class="section-title">Your Visit</h3>
+      <div class="choice-row">
+        <label class="choice"><input type="radio" name="visitType" value="First Time" required /> First-Time Visitor</label>
+        <label class="choice"><input type="radio" name="visitType" value="Returning" /> Returning Visitor</label>
+      </div>
+
+      <div style="margin-top:16px">
+        <label>How did you hear about us?</label>
+        <select id="heard">
+          <option value="">Select one</option>
+          <option>Invited by a Member/Friend</option>
+          <option>Facebook</option>
+          <option>Instagram</option>
+          <option>Church Website</option>
+          <option>Google / Search</option>
+          <option>Community Event</option>
+          <option>Drove / Passed the Church</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div id="inviterWrap" class="hidden" style="margin-top:14px">
+        <label>Who invited you?</label>
+        <input id="inviter" placeholder="Inviter's name" />
+      </div>
+
+      <div class="divider"></div>
+      <h3 class="section-title">Photo <span class="optional">(optional)</span></h3>
+      <div class="camera-box">
+        <div>Take a quick photo to help our outreach team recognize you next time.</div>
+        <div class="subtle" style="margin-top:5px">You can skip this if you prefer.</div>
+        <div style="margin-top:12px">
+          <button type="button" class="btn-secondary" onclick="startCamera()">Take My Photo</button>
+          <button type="button" class="btn-ghost" onclick="skipPhoto()">Skip</button>
+        </div>
+        <video id="video" class="hidden" autoplay playsinline></video>
+        <canvas id="canvas" class="hidden"></canvas>
+        <img id="photoPreview" class="hidden" alt="Photo preview" />
+        <div id="cameraActions" class="hidden" style="margin-top:10px">
+          <button type="button" class="btn-primary" onclick="capturePhoto()">Use Photo</button>
+          <button type="button" class="btn-ghost" onclick="startCamera()">Retake</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <h3 class="section-title">Permissions</h3>
+      <label class="choice" style="margin-bottom:10px">
+        <input id="contactPermission" type="checkbox" />
+        You may contact me about church activities and follow-up.
+      </label>
+      <label class="choice">
+        <input id="displayPermission" type="checkbox" />
+        You may include my name on today’s visitor welcome screen.
+      </label>
+
+      <div class="submit-wrap">
+        <button class="btn-primary" type="submit">Submit Registration</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="thankYouView" class="hidden">
+    <div class="card thankyou">
+      <div class="check">✓</div>
+      <h2>Thank you for visiting!</h2>
+      <p>We’re so glad you joined us today.</p>
+      <button class="btn-primary" onclick="showRegistration(true)">Register Another Visitor</button>
+    </div>
+  </section>
+
+  <section id="adminView" class="hidden">
+    <div class="hero">
+      <h2>Visitor Dashboard</h2>
+      <p>Private preview for church staff.</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div id="statToday" class="num">0</div><div class="lab">Visitors Today</div></div>
+      <div class="stat"><div id="statFirst" class="num">0</div><div class="lab">First-Time</div></div>
+      <div class="stat"><div id="statReturning" class="num">0</div><div class="lab">Returning</div></div>
+      <div class="stat"><div id="statFollowup" class="num">0</div><div class="lab">Follow-Up Allowed</div></div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <div class="admin-tabs">
+        <button class="tab active btn-secondary" id="tabList" onclick="showAdminTab('list')">Visitor List</button>
+        <button class="tab btn-secondary" id="tabWelcome" onclick="showAdminTab('welcome')">Welcome Screen Preview</button>
+      </div>
+
+      <div id="listTab">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+          <h3 style="margin:0">Today's Visitors</h3>
+          <div>
+            <button class="btn-ghost" onclick="seedDemo()">Load Demo Visitors</button>
+            <button class="btn-danger" onclick="clearVisitors()">Clear Prototype Data</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Visit</th><th>Phone / Email</th><th>Heard About Us</th><th>Invited By</th><th>Follow-Up</th><th>Welcome Screen</th></tr>
+          </thead>
+          <tbody id="visitorRows"></tbody>
+        </table>
+      </div>
+
+      <div id="welcomeTab" class="hidden">
+        <div class="welcome-preview">
+          <h3>WELCOME VISITORS</h3>
+          <div id="welcomeNames" class="names">No approved visitors yet.</div>
+          <div style="margin-top:18px;font-size:18px;color:#d1d5db">We’re glad you’re worshipping with us today!</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>Prototype only — data is stored locally in this browser for demonstration purposes.</footer>
+</div>
+
+<script>
+let photoData = "";
+let stream = null;
+
+function getVisitors(){
+  return JSON.parse(localStorage.getItem("churchVisitors") || "[]");
+}
+function saveVisitors(v){ localStorage.setItem("churchVisitors", JSON.stringify(v)); }
+
+function toggleInviter(){
+  const heard = (document.getElementById("heard").value || "").trim().toLowerCase();
+  const show = heard.includes("invited by a member/friend");
+  const wrap = document.getElementById("inviterWrap");
+  wrap.classList.toggle("hidden", !show);
+  if (show) {
+    setTimeout(() => {
+      const inviter = document.getElementById("inviter");
+      if (inviter) inviter.focus({preventScroll:false});
+    }, 150);
+  }
+}
+function showRegistration(reset=false){
+  document.getElementById("registrationView").classList.remove("hidden");
+  document.getElementById("thankYouView").classList.add("hidden");
+  document.getElementById("adminView").classList.add("hidden");
+  if(reset){
+    document.getElementById("visitorForm").reset();
+    document.getElementById("inviterWrap").classList.add("hidden");
+    document.getElementById("photoPreview").classList.add("hidden");
+    document.getElementById("video").classList.add("hidden");
+    document.getElementById("cameraActions").classList.add("hidden");
+    photoData="";
+  }
+}
+function showAdmin(){
+  document.getElementById("registrationView").classList.add("hidden");
+  document.getElementById("thankYouView").classList.add("hidden");
+  document.getElementById("adminView").classList.remove("hidden");
+  renderAdmin();
+}
+function showThankYou(){
+  document.getElementById("registrationView").classList.add("hidden");
+  document.getElementById("thankYouView").classList.remove("hidden");
+  document.getElementById("adminView").classList.add("hidden");
+}
+function showAdminTab(tab){
+  document.getElementById("listTab").classList.toggle("hidden", tab!=="list");
+  document.getElementById("welcomeTab").classList.toggle("hidden", tab!=="welcome");
+  document.getElementById("tabList").classList.toggle("active", tab==="list");
+  document.getElementById("tabWelcome").classList.toggle("active", tab==="welcome");
+  if(tab==="welcome") renderWelcome();
+}
+async function startCamera(){
+  try{
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}, audio:false});
+    const v=document.getElementById("video");
+    v.srcObject=stream;
+    v.classList.remove("hidden");
+    document.getElementById("photoPreview").classList.add("hidden");
+    document.getElementById("cameraActions").classList.remove("hidden");
+  }catch(e){
+    alert("Camera access is not available in this prototype on this device/browser.");
+  }
+}
+function capturePhoto(){
+  const v=document.getElementById("video");
+  const c=document.getElementById("canvas");
+  c.width=v.videoWidth||640; c.height=v.videoHeight||480;
+  c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+  photoData=c.toDataURL("image/jpeg",0.75);
+  const p=document.getElementById("photoPreview");
+  p.src=photoData; p.classList.remove("hidden"); v.classList.add("hidden");
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+}
+function skipPhoto(){
+  photoData="";
+  document.getElementById("photoPreview").classList.add("hidden");
+  document.getElementById("video").classList.add("hidden");
+  document.getElementById("cameraActions").classList.add("hidden");
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+}
+const heardSelect = document.getElementById("heard");
+["change","input","blur"].forEach(evt => heardSelect.addEventListener(evt, toggleInviter));
+heardSelect.addEventListener("touchend", () => setTimeout(toggleInviter, 200));
+
+document.getElementById("visitorForm").addEventListener("submit", e=>{
+  e.preventDefault();
+  const visitType = document.querySelector('input[name="visitType"]:checked')?.value || "";
+  const visitor = {
+    id:Date.now(),
+    date:new Date().toISOString(),
+    firstName:document.getElementById("firstName").value.trim(),
+    lastName:document.getElementById("lastName").value.trim(),
+    birthMonth:document.getElementById("birthMonth").value,
+    birthDay:document.getElementById("birthDay").value,
+    birthYear:document.getElementById("birthYear").value,
+    phone:document.getElementById("phone").value.trim(),
+    email:document.getElementById("email").value.trim(),
+    street:document.getElementById("street").value.trim(),
+    city:document.getElementById("city").value.trim(),
+    state:document.getElementById("state").value.trim(),
+    zip:document.getElementById("zip").value.trim(),
+    visitType,
+    heard:document.getElementById("heard").value,
+    inviter:document.getElementById("inviter").value.trim(),
+    contactPermission:document.getElementById("contactPermission").checked,
+    displayPermission:document.getElementById("displayPermission").checked,
+    photo:photoData
+  };
+  const all=getVisitors(); all.unshift(visitor); saveVisitors(all);
+  showThankYou();
+});
+function renderAdmin(){
+  const v=getVisitors();
+  document.getElementById("statToday").textContent=v.length;
+  document.getElementById("statFirst").textContent=v.filter(x=>x.visitType==="First Time").length;
+  document.getElementById("statReturning").textContent=v.filter(x=>x.visitType==="Returning").length;
+  document.getElementById("statFollowup").textContent=v.filter(x=>x.contactPermission).length;
+  const rows=document.getElementById("visitorRows");
+  rows.innerHTML = v.length ? v.map(x=>`
+    <tr>
+      <td><strong>${esc(x.firstName)} ${esc(x.lastName)}</strong></td>
+      <td><span class="pill ${x.visitType==="First Time"?"first":"returning"}">${esc(x.visitType||"—")}</span></td>
+      <td>${esc(x.phone||"—")}<br><span class="subtle">${esc(x.email||"")}</span></td>
+      <td>${esc(x.heard||"—")}</td>
+      <td>${esc(x.inviter||"—")}</td>
+      <td>${x.contactPermission?"Yes":"No"}</td>
+      <td>${x.displayPermission?"Yes":"No"}</td>
+    </tr>`).join("") :
+    `<tr><td colspan="7" class="subtle">No visitor registrations yet.</td></tr>`;
+  renderWelcome();
+}
+function renderWelcome(){
+  const names=getVisitors().filter(x=>x.displayPermission).map(x=>`${esc(x.firstName)} ${esc(x.lastName)}`);
+  document.getElementById("welcomeNames").innerHTML = names.length ? names.join("<br>") : "No approved visitors yet.";
+}
+function esc(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
+function clearVisitors(){
+  if(confirm("Clear all prototype visitor data stored in this browser?")){
+    localStorage.removeItem("churchVisitors"); renderAdmin();
+  }
+}
+function seedDemo(){
+  const demo=[
+    {id:1,date:new Date().toISOString(),firstName:"Angela",lastName:"Brown",visitType:"First Time",phone:"(555) 555-0184",email:"angela@example.com",heard:"Invited by a Member/Friend",inviter:"Mary Johnson",contactPermission:true,displayPermission:true},
+    {id:2,date:new Date().toISOString(),firstName:"David",lastName:"Smith",visitType:"Returning",phone:"(555) 555-0167",email:"david@example.com",heard:"Facebook",inviter:"",contactPermission:true,displayPermission:true},
+    {id:3,date:new Date().toISOString(),firstName:"Carla",lastName:"Reed",visitType:"First Time",phone:"(555) 555-0142",email:"",heard:"Google / Search",inviter:"",contactPermission:false,displayPermission:false}
+  ];
+  saveVisitors(demo); renderAdmin();
+}
+</script>
+</body>
+</html>
