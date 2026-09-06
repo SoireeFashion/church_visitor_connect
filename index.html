@@ -138,7 +138,7 @@
   </div>
   <div class="top-actions">
     <button class="btn-secondary" onclick="showRegistration()">Registration</button>
-    <button class="btn-ghost" onclick="showAdmin()">Admin Preview</button>
+    <button class="btn-ghost" onclick="checkAdminPin()">Admin Preview</button>
   </div>
 </header>
 
@@ -336,6 +336,15 @@ function showRegistration(reset=false){
     document.getElementById("video").classList.add("hidden");
     document.getElementById("cameraActions").classList.add("hidden");
     photoData="";
+  }
+}
+  function checkAdminPin(){
+  const pin = prompt("Enter Staff PIN");
+
+  if(pin === "2468"){
+    showAdmin();
+  } else if(pin !== null){
+    alert("Incorrect PIN");
   }
 }
 function showAdmin(){
