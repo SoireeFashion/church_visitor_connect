@@ -370,18 +370,22 @@ function showAdmin(role="admin"){
 
   const tabList = document.getElementById("tabList");
   const tabWelcome = document.getElementById("tabWelcome");
+  const stats = document.querySelector(".stats");
 
   if(role === "media"){
+    stats.classList.add("hidden");
     tabList.classList.add("hidden");
     tabWelcome.classList.remove("hidden");
     showAdminTab("welcome");
   }
   else if(role === "outreach"){
+    stats.classList.remove("hidden");
     tabList.classList.remove("hidden");
     tabWelcome.classList.add("hidden");
     showAdminTab("list");
   }
   else{
+    stats.classList.remove("hidden");
     tabList.classList.remove("hidden");
     tabWelcome.classList.remove("hidden");
     showAdminTab("list");
