@@ -338,19 +338,55 @@ function showRegistration(reset=false){
     photoData="";
   }
 }
-  function checkAdminPin(){
+ function checkAdminPin(){
   const pin = prompt("Enter Staff PIN");
 
-  if(pin === "2468"){
-    showAdmin();
-  } else if(pin !== null){
+  if(pin === null) return;
+
+  if(pin === "1111"){
+    alert("Usher / Greeter access: Registration only.");
+    showRegistration();
+  } 
+  else if(pin === "2222"){
+    alert("Outreach access: Visitor list and follow-up information.");
+    showAdmin("outreach");
+  } 
+  else if(pin === "3333"){
+    alert("Media access: Welcome Screen only.");
+    showAdmin("media");
+  } 
+  else if(pin === "2468"){
+    alert("Church Admin access: Full dashboard.");
+    showAdmin("admin");
+  } 
+  else {
     alert("Incorrect PIN");
   }
 }
-function showAdmin(){
+function showAdmin(role="admin"){
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
   document.getElementById("adminView").classList.remove("hidden");
+
+  const tabList = document.getElementById("tabList");
+  const tabWelcome = document.getElementById("tabWelcome");
+
+  if(role === "media"){
+    tabList.classList.add("hidden");
+    tabWelcome.classList.remove("hidden");
+    showAdminTab("welcome");
+  }
+  else if(role === "outreach"){
+    tabList.classList.remove("hidden");
+    tabWelcome.classList.add("hidden");
+    showAdminTab("list");
+  }
+  else{
+    tabList.classList.remove("hidden");
+    tabWelcome.classList.remove("hidden");
+    showAdminTab("list");
+  }
+
   renderAdmin();
 }
 function showThankYou(){
@@ -412,10 +448,8 @@ document.getElementById("visitorForm").addEventListener("submit", e=>{
     birthYear:document.getElementById("birthYear").value,
     phone:document.getElementById("phone").value.trim(),
     email:document.getElementById("email").value.trim(),
-    street:document.getElementById("street").value.trim(),
     city:document.getElementById("city").value.trim(),
     state:document.getElementById("state").value.trim(),
-    zip:document.getElementById("zip").value.trim(),
     visitType,
     heard:document.getElementById("heard").value,
     inviter:document.getElementById("inviter").value.trim(),
