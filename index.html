@@ -880,14 +880,12 @@ async function saveFollowUp(){
   const existingVisitor =
     window.allVisitors?.find(x => x.id === visitorId);
 
+  // First Contacted is protected by the database trigger.
+  // Last Contacted records the most recent contact activity.
   let followedUpAt = existingVisitor?.followed_up_at || null;
 
-  if (status === "Contacted" && !followedUpAt) {
+  if (status === "Contacted") {
     followedUpAt = new Date().toISOString();
-  }
-
-  if (status === "Not Contacted") {
-    followedUpAt = null;
   }
 
   button.disabled = true;
