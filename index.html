@@ -453,6 +453,23 @@
             </div>
           </div>
 
+          <div class="detail-grid" style="margin-top:16px">
+            <div class="detail-item">
+              <div class="detail-label">First Contacted</div>
+              <div id="firstContactedAt" class="detail-value">—</div>
+            </div>
+
+            <div class="detail-item">
+              <div class="detail-label">Response Time</div>
+              <div id="responseTime" class="detail-value">—</div>
+            </div>
+
+            <div class="detail-item">
+              <div class="detail-label">48-Hour Follow-Up Goal</div>
+              <div id="slaStatus" class="detail-value">—</div>
+            </div>
+          </div>
+
           <div style="margin-top:16px">
             <label for="followUpNotes">Follow-Up Notes</label>
             <textarea id="followUpNotes"
@@ -678,6 +695,77 @@ function formatBirthday(visitor){
   return parts.join(" ");
 }
 
+function formatDuration(milliseconds){
+  if (milliseconds < 0) milliseconds = 0;
+
+  const totalMinutes = Math.floor(milliseconds / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${minutes}m`;
+}
+
+function renderSLA(visitor){
+  const firstEl = document.getElementById("firstContactedAt");
+  const responseEl = document.getElementById("responseTime");
+  const statusEl = document.getElementById("slaStatus");
+
+  const visited = visitor.created_at
+    ? new Date(visitor.created_at)
+    : null;
+
+  const firstContacted = visitor.first_contacted_at
+    ? new Date(visitor.first_contacted_at)
+    : null;
+
+  firstEl.textContent = firstContacted
+    ? firstContacted.toLocaleString([], {
+        dateStyle: "medium",
+        timeStyle: "short"
+      })
+    : "—";
+
+  if (!visited) {
+    responseEl.textContent = "—";
+    statusEl.textContent = "—";
+    return;
+  }
+
+  if (firstContacted) {
+    const elapsed = firstContacted - visited;
+
+    responseEl.textContent = formatDuration(elapsed);
+
+    if (elapsed <= 48 * 60 * 60 * 1000) {
+      statusEl.textContent = "Met";
+    } else {
+      statusEl.textContent = "Missed";
+    }
+
+    return;
+  }
+
+  const elapsed = Date.now() - visited;
+
+  responseEl.textContent = "Awaiting first contact";
+
+  if (elapsed > 48 * 60 * 60 * 1000) {
+    statusEl.textContent = "Overdue";
+  } else {
+    const remaining = (48 * 60 * 60 * 1000) - elapsed;
+    statusEl.textContent = `Pending — ${formatDuration(remaining)} remaining`;
+  }
+}
+
 function openVisitorDetail(visitorId, source="list"){
   const visitor = window.allVisitors?.find(x => x.id === visitorId);
   if (!visitor) return;
@@ -732,6 +820,8 @@ function openVisitorDetail(visitorId, source="list"){
       : "—";
 
   document.getElementById("followUpMessage").classList.add("hidden");
+
+  renderSLA(visitor);
 }
 
 async function saveFollowUp(){
@@ -802,6 +892,8 @@ async function saveFollowUp(){
             timeStyle: "short"
           })
         : "—";
+
+    renderSLA(data);
 
     message.textContent = "Follow-up saved.";
     message.style.color = "green";
