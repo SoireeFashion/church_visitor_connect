@@ -320,12 +320,13 @@
       <div class="stat"><div id="statToday" class="num">0</div><div class="lab">Visitors Today</div></div>
       <div class="stat"><div id="statFirst" class="num">0</div><div class="lab">First-Time</div></div>
       <div class="stat"><div id="statReturning" class="num">0</div><div class="lab">Returning</div></div>
-      <div class="stat"><div id="statFollowup" class="num">0</div><div class="lab">Follow-Up Allowed</div></div>
+      <div class="stat"><div id="statFollowup" class="num">0</div><div class="lab">Follow-Up Needed</div></div>
     </div>
 
     <div class="card" style="margin-top:20px">
       <div class="admin-tabs">
         <button class="tab active btn-secondary" id="tabList" onclick="showAdminTab('list')">Visitor List</button>
+        <button class="tab btn-secondary" id="tabFollowup" onclick="showAdminTab('followup')">Follow-Up Queue</button>
         <button class="tab btn-secondary" id="tabWelcome" onclick="showAdminTab('welcome')">Welcome Screen Preview</button>
         <button class="btn-ghost" type="button" onclick="adminLogout()" style="margin-left:auto">Log Out</button>
       </div>
@@ -343,6 +344,31 @@
             <tr><th>Name</th><th>Visit</th><th>Phone / Email</th><th>Heard About Us</th><th>Invited By</th><th>Follow-Up</th><th>Welcome Screen</th></tr>
           </thead>
           <tbody id="visitorRows"></tbody>
+        </table>
+      </div>
+
+      <div id="followupTab" class="hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;
+                    gap:12px;flex-wrap:wrap;margin-bottom:14px">
+          <div>
+            <h3 style="margin:0">Follow-Up Queue</h3>
+            <div class="subtle" style="margin-top:4px">
+              Visitors who requested follow-up and have not yet been contacted.
+            </div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Visited</th>
+              <th>Visit</th>
+              <th>Phone / Email</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="followupRows"></tbody>
         </table>
       </div>
 
@@ -403,6 +429,49 @@
             <div class="detail-label">Welcome Screen Permission</div>
             <div id="detailWelcome" class="detail-value">—</div>
           </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div style="margin-top:24px">
+          <h3 class="section-title">Follow-Up</h3>
+
+          <div class="grid grid-2">
+            <div>
+              <label for="followUpStatus">Status</label>
+              <select id="followUpStatus">
+                <option value="Not Contacted">Not Contacted</option>
+                <option value="Contacted">Contacted</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Last Contacted</label>
+              <div id="followedUpAt"
+                   class="detail-item"
+                   style="margin-top:6px">—</div>
+            </div>
+          </div>
+
+          <div style="margin-top:16px">
+            <label for="followUpNotes">Follow-Up Notes</label>
+            <textarea id="followUpNotes"
+                      rows="5"
+                      placeholder="Add a note about the follow-up..."
+                      style="width:100%;font-size:16px"></textarea>
+          </div>
+
+          <div id="followUpMessage"
+               class="hidden"
+               style="margin-top:12px"></div>
+
+          <button type="button"
+                  id="saveFollowUpButton"
+                  class="btn-primary"
+                  onclick="saveFollowUp()"
+                  style="margin-top:16px">
+            Save Follow-Up
+          </button>
         </div>
       </div>
 
@@ -582,10 +651,15 @@ async function closeVisitorConnect(){
 }
 function showAdminTab(tab){
   document.getElementById("listTab").classList.toggle("hidden", tab!=="list");
+  document.getElementById("followupTab").classList.toggle("hidden", tab!=="followup");
   document.getElementById("welcomeTab").classList.toggle("hidden", tab!=="welcome");
   document.getElementById("visitorDetailTab").classList.add("hidden");
+
   document.getElementById("tabList").classList.toggle("active", tab==="list");
+  document.getElementById("tabFollowup").classList.toggle("active", tab==="followup");
   document.getElementById("tabWelcome").classList.toggle("active", tab==="welcome");
+
+  if(tab==="followup") renderFollowUpQueue();
   if(tab==="welcome") renderWelcome();
 }
 function formatBirthday(visitor){
@@ -604,11 +678,14 @@ function formatBirthday(visitor){
   return parts.join(" ");
 }
 
-function openVisitorDetail(visitorId){
-  const visitor = window.currentVisitors?.find(x => x.id === visitorId);
+function openVisitorDetail(visitorId, source="list"){
+  const visitor = window.allVisitors?.find(x => x.id === visitorId);
   if (!visitor) return;
 
+  window.visitorDetailSource = source;
+
   document.getElementById("listTab").classList.add("hidden");
+  document.getElementById("followupTab").classList.add("hidden");
   document.getElementById("welcomeTab").classList.add("hidden");
   document.getElementById("visitorDetailTab").classList.remove("hidden");
 
@@ -637,11 +714,111 @@ function openVisitorDetail(visitorId){
           timeStyle: "short"
         })
       : "—";
+
+  window.currentVisitorId = visitor.id;
+
+  document.getElementById("followUpStatus").value =
+    visitor.follow_up_status || "Not Contacted";
+
+  document.getElementById("followUpNotes").value =
+    visitor.follow_up_notes || "";
+
+  document.getElementById("followedUpAt").textContent =
+    visitor.followed_up_at
+      ? new Date(visitor.followed_up_at).toLocaleString([], {
+          dateStyle: "medium",
+          timeStyle: "short"
+        })
+      : "—";
+
+  document.getElementById("followUpMessage").classList.add("hidden");
+}
+
+async function saveFollowUp(){
+  const visitorId = window.currentVisitorId;
+  if (!visitorId) return;
+
+  const status = document.getElementById("followUpStatus").value;
+  const notes = document.getElementById("followUpNotes").value.trim();
+  const button = document.getElementById("saveFollowUpButton");
+  const message = document.getElementById("followUpMessage");
+
+  const followedUpAt =
+    status === "Contacted" ? new Date().toISOString() : null;
+
+  button.disabled = true;
+  button.textContent = "Saving...";
+  message.classList.add("hidden");
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("visitors")
+      .update({
+        follow_up_status: status,
+        follow_up_notes: notes || null,
+        followed_up_at: followedUpAt
+      })
+      .eq("id", visitorId)
+      .eq("church_id", CHURCH_ID)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const index = window.currentVisitors?.findIndex(x => x.id === visitorId);
+
+    if (index >= 0) {
+      window.currentVisitors[index] = data;
+    }
+
+    const allIndex = window.allVisitors?.findIndex(x => x.id === visitorId);
+
+    if (allIndex >= 0) {
+      window.allVisitors[allIndex] = data;
+    }
+
+    const followUpNeeded = (window.allVisitors || []).filter(x =>
+      x.contact_permission &&
+      (x.follow_up_status || "Not Contacted") !== "Contacted"
+    );
+
+    document.getElementById("statFollowup").textContent =
+      followUpNeeded.length;
+
+    document.getElementById("followedUpAt").textContent =
+      data.followed_up_at
+        ? new Date(data.followed_up_at).toLocaleString([], {
+            dateStyle: "medium",
+            timeStyle: "short"
+          })
+        : "—";
+
+    message.textContent = "Follow-up saved.";
+    message.style.color = "green";
+    message.classList.remove("hidden");
+
+  } catch (error) {
+    console.error("Follow-up save error:", error);
+
+    message.textContent = "Unable to save follow-up. Please try again.";
+    message.style.color = "var(--danger)";
+    message.classList.remove("hidden");
+
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save Follow-Up";
+  }
 }
 
 function closeVisitorDetail(){
   document.getElementById("visitorDetailTab").classList.add("hidden");
-  document.getElementById("listTab").classList.remove("hidden");
+
+  if (window.visitorDetailSource === "followup") {
+    document.getElementById("followupTab").classList.remove("hidden");
+    renderFollowUpQueue();
+  } else {
+    document.getElementById("listTab").classList.remove("hidden");
+  }
 }
 
 async function startCamera(){
@@ -814,6 +991,7 @@ async function renderAdmin(){
   }
 
   const v = visitors || [];
+  window.allVisitors = v;
 
   // Dashboard and visitor list show registrations from today only.
   const now = new Date();
@@ -831,8 +1009,13 @@ async function renderAdmin(){
     today.filter(x => x.visit_type === "First Time").length;
   document.getElementById("statReturning").textContent =
     today.filter(x => x.visit_type === "Returning").length;
+  const followUpNeeded = v.filter(x =>
+    x.contact_permission &&
+    (x.follow_up_status || "Not Contacted") !== "Contacted"
+  );
+
   document.getElementById("statFollowup").textContent =
-    today.filter(x => x.contact_permission).length;
+    followUpNeeded.length;
 
   rows.innerHTML = today.length ? today.map(x => `
     <tr class="visitor-row"
@@ -850,6 +1033,51 @@ async function renderAdmin(){
     `<tr><td colspan="7" class="subtle">No visitor registrations yet.</td></tr>`;
 
   renderWelcome(today);
+}
+
+function renderFollowUpQueue(){
+  const rows = document.getElementById("followupRows");
+  const visitors = window.allVisitors || [];
+
+  const queue = visitors
+    .filter(x =>
+      x.contact_permission &&
+      (x.follow_up_status || "Not Contacted") !== "Contacted"
+    )
+    .sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+
+  rows.innerHTML = queue.length ? queue.map(x => {
+    const visited = x.created_at
+      ? new Date(x.created_at).toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+          year: "numeric"
+        })
+      : "—";
+
+    return `
+      <tr class="visitor-row"
+          tabindex="0"
+          onclick="openVisitorDetail('${x.id}', 'followup')"
+          onkeydown="if(event.key==='Enter'||event.key===' '){
+            event.preventDefault();
+            openVisitorDetail('${x.id}', 'followup')
+          }">
+        <td><strong>${esc(x.first_name)} ${esc(x.last_name)}</strong></td>
+        <td>${visited}</td>
+        <td>${esc(x.visit_type || "—")}</td>
+        <td>
+          ${esc(x.phone || "—")}<br>
+          <span class="subtle">${esc(x.email || "")}</span>
+        </td>
+        <td><strong>${esc(x.follow_up_status || "Not Contacted")}</strong></td>
+      </tr>`;
+  }).join("") :
+    `<tr>
+       <td colspan="5" class="subtle">
+         You're all caught up — no visitors are waiting for follow-up.
+       </td>
+     </tr>`;
 }
 
 async function renderWelcome(visitors=null){
