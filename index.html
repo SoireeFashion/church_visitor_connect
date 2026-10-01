@@ -301,6 +301,12 @@
 
         <button class="btn-primary" type="submit" style="width:100%">Sign In</button>
 
+        <button class="btn-ghost" type="button"
+          onclick="requestPasswordReset()"
+          style="width:100%;margin-top:10px">
+          Forgot Password?
+        </button>
+
         <button class="btn-secondary" type="button"
           onclick="showRegistration()"
           style="width:100%;margin-top:10px">
@@ -1015,6 +1021,37 @@ document.getElementById("showAdminPassword").addEventListener("change", e => {
   password.type = e.target.checked ? "text" : "password";
 });
 
+async function requestPasswordReset(){
+  const email = document.getElementById("adminEmail").value.trim();
+  const errorBox = document.getElementById("adminLoginError");
+
+  errorBox.classList.add("hidden");
+
+  if (!email) {
+    errorBox.textContent = "Enter your email address first, then choose Forgot Password.";
+    errorBox.classList.remove("hidden");
+    return;
+  }
+
+  try {
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+
+    if (error) throw error;
+
+    errorBox.style.color = "var(--success, green)";
+    errorBox.textContent = "Password reset email sent. Check your inbox.";
+    errorBox.classList.remove("hidden");
+
+  } catch (error) {
+    console.error("Password reset error:", error);
+    errorBox.style.color = "var(--danger)";
+    errorBox.textContent = "Unable to send the password reset email. Please try again.";
+    errorBox.classList.remove("hidden");
+  }
+}
+
 document.getElementById("adminLoginForm").addEventListener("submit", async e => {
   e.preventDefault();
 
@@ -1024,6 +1061,7 @@ document.getElementById("adminLoginForm").addEventListener("submit", async e => 
   const button = e.target.querySelector('button[type="submit"]');
 
   errorBox.classList.add("hidden");
+  errorBox.style.color = "var(--danger)";
   button.disabled = true;
   button.textContent = "Signing In...";
 
