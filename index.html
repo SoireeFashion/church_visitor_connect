@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Church Visitor Registration Prototype</title>
+<title>Visitor Connect</title>
 <style>
   :root{
     --bg:#f4f1ea;
@@ -133,7 +133,7 @@
     <div class="logo">C</div>
     <div>
       <h1>COP COGIC</h1>
-      <p>Prototype for pastor review</p>
+      <p>Welcome to Visitor Connect</p>
     </div>
   </div>
   <div class="top-actions">
@@ -251,7 +251,9 @@
       <div class="check">✓</div>
       <h2>Thank you for visiting!</h2>
       <p>We’re so glad you joined us today.</p>
-      <button class="btn-primary" onclick="showRegistration(true)">Register Another Visitor</button>
+      <p>Your registration has been received.</p>
+      <button class="btn-primary" onclick="showRegistration(true)">Register Another Person</button>
+      <button class="btn-secondary" onclick="closeVisitorConnect()">Close</button>
     </div>
   </section>
 
@@ -279,7 +281,7 @@
           <h3 style="margin:0">Today's Visitors</h3>
           <div>
             <button class="btn-ghost" onclick="seedDemo()">Load Demo Visitors</button>
-            <button class="btn-danger" onclick="clearVisitors()">Clear Prototype Data</button>
+            <button class="btn-danger" onclick="clearVisitors()">Clear Visitor Data</button>
           </div>
         </div>
         <table>
@@ -301,9 +303,11 @@
   </section>
 </main>
 
-<footer>Prototype only — data is stored locally in this browser for demonstration purposes.</footer>
+<footer>Visitor Connect • Church Visitor Management</footer>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 <script>
 let photoData = "";
 let stream = null;
@@ -395,8 +399,38 @@ function showAdmin(role="admin"){
 }
 function showThankYou(){
   document.getElementById("registrationView").classList.add("hidden");
-  document.getElementById("thankYouView").classList.remove("hidden");
   document.getElementById("adminView").classList.add("hidden");
+  document.getElementById("thankYouView").classList.remove("hidden");
+
+  document.getElementById("visitorForm").reset();
+  document.getElementById("inviterWrap").classList.add("hidden");
+  document.getElementById("photoPreview").classList.add("hidden");
+  document.getElementById("video").classList.add("hidden");
+  document.getElementById("cameraActions").classList.add("hidden");
+  photoData = "";
+}
+
+async function closeVisitorConnect(){
+  try {
+    const { data, error } = await supabaseClient.rpc(
+      "get_public_church_info",
+      { target_church_id: CHURCH_ID }
+    );
+
+    if (error) throw error;
+
+    const church = Array.isArray(data) ? data[0] : data;
+
+    if (church && church.website_url) {
+      window.location.href = church.website_url;
+      return;
+    }
+
+    alert("The church website is not available.");
+  } catch (error) {
+    console.error("Church website lookup error:", error);
+    alert("We couldn't open the church website. Please try again.");
+  }
 }
 function showAdminTab(tab){
   document.getElementById("listTab").classList.toggle("hidden", tab!=="list");
@@ -415,7 +449,7 @@ async function startCamera(){
     document.getElementById("photoPreview").classList.add("hidden");
     document.getElementById("cameraActions").classList.remove("hidden");
   }catch(e){
-    alert("Camera access is not available in this prototype on this device/browser.");
+    alert("Camera access is not available on this device or browser.");
   }
 }
 function capturePhoto(){
@@ -439,7 +473,21 @@ const heardSelect = document.getElementById("heard");
 ["change","input","blur"].forEach(evt => heardSelect.addEventListener(evt, toggleInviter));
 heardSelect.addEventListener("touchend", () => setTimeout(toggleInviter, 200));
 
-document.getElementById("visitorForm").addEventListener("submit", e=>{
+const SUPABASE_URL = "https://qfgmgkbnfhkucheyuuai.supabase.co";
+const CHURCH_ID = "e2784d66-2082-4bef-b3bd-2b0a20e9142a";
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  window.VISITOR_CONNECT_SUPABASE_KEY
+);
+
+const monthNumbers = {
+  January: 1, February: 2, March: 3, April: 4,
+  May: 5, June: 6, July: 7, August: 8,
+  September: 9, October: 10, November: 11, December: 12
+};
+
+document.getElementById("visitorForm").addEventListener("submit", async e=>{
   e.preventDefault();
   const visitType = document.querySelector('input[name="visitType"]:checked')?.value || "";
   const visitor = {
@@ -461,8 +509,47 @@ document.getElementById("visitorForm").addEventListener("submit", e=>{
     displayPermission:document.getElementById("displayPermission").checked,
     photo:photoData
   };
-  const all=getVisitors(); all.unshift(visitor); saveVisitors(all);
-  showThankYou();
+  const databaseVisitor = {
+    church_id: CHURCH_ID,
+    first_name: visitor.firstName,
+    last_name: visitor.lastName,
+    birth_month: monthNumbers[visitor.birthMonth] || null,
+    birth_day: visitor.birthDay ? Number(visitor.birthDay) : null,
+    birth_year: visitor.birthYear ? Number(visitor.birthYear) : null,
+    email: visitor.email || null,
+    phone: visitor.phone || null,
+    city: visitor.city || null,
+    state: visitor.state || null,
+    visit_type: visitor.visitType || null,
+    heard_about_us: visitor.heard || null,
+    invited_by: visitor.inviter || null,
+    contact_permission: visitor.contactPermission,
+    display_permission: visitor.displayPermission
+  };
+
+  const submitButton = e.target.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
+
+  try {
+    const { error } = await supabaseClient
+      .from("visitors")
+      .insert(databaseVisitor);
+
+    if (error) throw error;
+
+    // Temporary compatibility copy for the existing admin/welcome screens.
+    // We will remove this after those screens use Supabase Auth + database reads.
+    const all = getVisitors();
+    all.unshift(visitor);
+    saveVisitors(all);
+
+    showThankYou();
+  } catch (error) {
+    console.error("Visitor registration error:", error);
+    alert("We couldn't submit your registration. Please try again.");
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
 });
 function renderAdmin(){
   const v=getVisitors();
@@ -490,7 +577,7 @@ function renderWelcome(){
 }
 function esc(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
 function clearVisitors(){
-  if(confirm("Clear all prototype visitor data stored in this browser?")){
+  if(confirm("Clear all visitor data stored on this device?")){
     localStorage.removeItem("churchVisitors"); renderAdmin();
   }
 }
