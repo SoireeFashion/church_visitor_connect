@@ -342,30 +342,49 @@ function showRegistration(reset=false){
     photoData="";
   }
 }
- function checkAdminPin(){
-  const pin = prompt("Enter Staff PIN");
+ async function checkAdminPin(){
+  const email = prompt("Admin Email");
+  if (!email) return;
 
-  if(pin === null) return;
+  const password = prompt("Password");
+  if (!password) return;
 
-  if(pin === "1111"){
-    alert("Usher / Greeter access: Registration only.");
-    showRegistration();
-  } 
-  else if(pin === "2222"){
-    alert("Outreach access: Visitor list and follow-up information.");
-    showAdmin("outreach");
-  } 
-  else if(pin === "3333"){
-    alert("Media access: Welcome Screen only.");
-    showAdmin("media");
-  } 
-  else if(pin === "2468"){
-    alert("Church Admin access: Full dashboard.");
-    showAdmin("admin");
-  } 
-  else {
-    alert("Incorrect PIN");
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email.trim(),
+    password: password
+  });
+
+  if (error) {
+    console.error("Admin login error:", error);
+    alert("Unable to sign in. Please check your email and password.");
+    return;
   }
+
+  const user = data.user;
+
+  const { data: memberships, error: membershipError } = await supabaseClient
+    .from("church_users")
+    .select("church_id, role")
+    .eq("user_id", user.id);
+
+  if (membershipError) {
+    console.error("Church access error:", membershipError);
+    await supabaseClient.auth.signOut();
+    alert("We couldn't verify your church access.");
+    return;
+  }
+
+  const membership = memberships?.find(
+    item => item.church_id === CHURCH_ID
+  );
+
+  if (!membership) {
+    await supabaseClient.auth.signOut();
+    alert("Your account does not have access to this church.");
+    return;
+  }
+
+  showAdmin(membership.role || "admin");
 }
 function showAdmin(role="admin"){
   document.getElementById("registrationView").classList.add("hidden");
