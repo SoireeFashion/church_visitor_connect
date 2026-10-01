@@ -138,7 +138,7 @@
   </div>
   <div class="top-actions">
     <button class="btn-secondary" onclick="showRegistration()">Registration</button>
-    <button class="btn-ghost" onclick="checkAdminPin()">Admin Preview</button>
+    <button class="btn-ghost" onclick="showAdminLogin()">Admin</button>
   </div>
 </header>
 
@@ -257,10 +257,55 @@
     </div>
   </section>
 
+  <section id="adminLoginView" class="hidden">
+    <div class="hero">
+      <h2>Church Staff Login</h2>
+      <p>Sign in to access Visitor Connect.</p>
+    </div>
+
+    <div class="card" style="max-width:520px;margin:0 auto">
+      <form id="adminLoginForm">
+        <div style="margin-bottom:16px">
+          <label for="adminEmail">Email Address</label>
+          <input id="adminEmail" type="email" autocomplete="username" required />
+        </div>
+
+        <div style="margin-bottom:20px">
+          <label for="adminPassword">Password</label>
+          <input id="adminPassword" type="password"
+                 autocomplete="current-password"
+                 required
+                 style="font-size:18px" />
+
+          <label style="display:flex;align-items:center;gap:10px;
+                       margin-top:12px;font-size:16px;font-weight:500;
+                       cursor:pointer">
+            <input id="showAdminPassword"
+                   type="checkbox"
+                   style="width:22px;height:22px;flex:none" />
+            Show password
+          </label>
+        </div>
+
+        <div id="adminLoginError" class="hidden" style="color:var(--danger);margin-bottom:16px">
+          Unable to sign in. Please check your email and password.
+        </div>
+
+        <button class="btn-primary" type="submit" style="width:100%">Sign In</button>
+
+        <button class="btn-secondary" type="button"
+          onclick="showRegistration()"
+          style="width:100%;margin-top:10px">
+          Back to Registration
+        </button>
+      </form>
+    </div>
+  </section>
+
   <section id="adminView" class="hidden">
     <div class="hero">
       <h2>Visitor Dashboard</h2>
-      <p>Private preview for church staff.</p>
+      <p>Church visitor management.</p>
     </div>
 
     <div class="stats" id="dashboardStats">
@@ -274,6 +319,7 @@
       <div class="admin-tabs">
         <button class="tab active btn-secondary" id="tabList" onclick="showAdminTab('list')">Visitor List</button>
         <button class="tab btn-secondary" id="tabWelcome" onclick="showAdminTab('welcome')">Welcome Screen Preview</button>
+        <button class="btn-ghost" type="button" onclick="adminLogout()" style="margin-left:auto">Log Out</button>
       </div>
 
       <div id="listTab">
@@ -329,6 +375,7 @@ function showRegistration(reset=false){
   document.getElementById("registrationView").classList.remove("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
   document.getElementById("adminView").classList.add("hidden");
+  document.getElementById("adminLoginView").classList.add("hidden");
   if(reset){
     document.getElementById("visitorForm").reset();
     document.getElementById("inviterWrap").classList.add("hidden");
@@ -338,53 +385,70 @@ function showRegistration(reset=false){
     photoData="";
   }
 }
- async function checkAdminPin(){
-  const email = prompt("Admin Email");
-  if (!email) return;
+function showAdminLogin(){
+  const password = document.getElementById("adminPassword");
+  const showPassword = document.getElementById("showAdminPassword");
 
-  const password = prompt("Password");
-  if (!password) return;
+  password.value = "";
+  password.type = "password";
+  showPassword.checked = false;
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email: email.trim(),
-    password: password
-  });
+  document.getElementById("registrationView").classList.add("hidden");
+  document.getElementById("thankYouView").classList.add("hidden");
+  document.getElementById("adminView").classList.add("hidden");
+  document.getElementById("adminLoginView").classList.remove("hidden");
+  document.getElementById("adminLoginError").classList.add("hidden");
+  document.getElementById("adminEmail").focus();
+}
 
-  if (error) {
-    console.error("Admin login error:", error);
-    alert("Unable to sign in. Please check your email and password.");
-    return;
-  }
-
-  const user = data.user;
-
-  const { data: memberships, error: membershipError } = await supabaseClient
+async function verifyAdminAccess(user){
+  const { data: memberships, error } = await supabaseClient
     .from("church_users")
     .select("church_id, role")
     .eq("user_id", user.id);
 
-  if (membershipError) {
-    console.error("Church access error:", membershipError);
-    await supabaseClient.auth.signOut();
-    alert("We couldn't verify your church access.");
-    return;
+  if (error) {
+    console.error("Church access error:", error);
+    return null;
   }
 
-  const membership = memberships?.find(
-    item => item.church_id === CHURCH_ID
-  );
-
-  if (!membership) {
-    await supabaseClient.auth.signOut();
-    alert("Your account does not have access to this church.");
-    return;
-  }
-
-  showAdmin(membership.role || "admin");
+  return memberships?.find(item => item.church_id === CHURCH_ID) || null;
 }
+
+async function adminLogout(){
+  await supabaseClient.auth.signOut();
+
+  const form = document.getElementById("adminLoginForm");
+  const password = document.getElementById("adminPassword");
+  const showPassword = document.getElementById("showAdminPassword");
+
+  form.reset();
+  password.type = "password";
+  showPassword.checked = false;
+
+  showRegistration();
+}
+
+async function protectAdminView(){
+  const adminView = document.getElementById("adminView");
+
+  if (adminView.classList.contains("hidden")) return;
+
+  const { data } = await supabaseClient.auth.getSession();
+
+  if (!data.session) {
+    adminView.classList.add("hidden");
+    showRegistration();
+  }
+}
+
+window.addEventListener("pageshow", protectAdminView);
+window.addEventListener("popstate", protectAdminView);
+
 function showAdmin(role="admin"){
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
+  document.getElementById("adminLoginView").classList.add("hidden");
   document.getElementById("adminView").classList.remove("hidden");
 
   const tabList = document.getElementById("tabList");
@@ -415,6 +479,7 @@ function showAdmin(role="admin"){
 function showThankYou(){
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("adminView").classList.add("hidden");
+  document.getElementById("adminLoginView").classList.add("hidden");
   document.getElementById("thankYouView").classList.remove("hidden");
 
   document.getElementById("visitorForm").reset();
@@ -495,6 +560,53 @@ const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   window.VISITOR_CONNECT_SUPABASE_KEY
 );
+
+document.getElementById("showAdminPassword").addEventListener("change", e => {
+  const password = document.getElementById("adminPassword");
+  password.type = e.target.checked ? "text" : "password";
+});
+
+document.getElementById("adminLoginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+
+  const email = document.getElementById("adminEmail").value.trim();
+  const password = document.getElementById("adminPassword").value;
+  const errorBox = document.getElementById("adminLoginError");
+  const button = e.target.querySelector('button[type="submit"]');
+
+  errorBox.classList.add("hidden");
+  button.disabled = true;
+  button.textContent = "Signing In...";
+
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) throw error;
+
+    const membership = await verifyAdminAccess(data.user);
+
+    if (!membership) {
+      await supabaseClient.auth.signOut();
+      errorBox.textContent = "Your account does not have access to this church.";
+      errorBox.classList.remove("hidden");
+      return;
+    }
+
+    document.getElementById("adminPassword").value = "";
+    showAdmin(membership.role || "admin");
+
+  } catch (error) {
+    console.error("Admin login error:", error);
+    errorBox.textContent = "Unable to sign in. Please check your email and password.";
+    errorBox.classList.remove("hidden");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Sign In";
+  }
+});
 
 const monthNumbers = {
   January: 1, February: 2, March: 3, April: 4,
