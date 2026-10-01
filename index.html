@@ -1278,13 +1278,10 @@ function renderVisitorHistory(){
         })
       : "—";
 
-    let status = "First-Time Visitor";
-
-    if (person.count >= 3) {
-      status = "🎁 Appreciation Opportunity";
-    } else if (person.count > 1) {
-      status = "Returning Visitor";
-    }
+    const status =
+      person.count > 1
+        ? "Returning Visitor"
+        : "First-Time Visitor";
 
     return `
       <tr class="visitor-row"
