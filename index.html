@@ -312,10 +312,6 @@
 let photoData = "";
 let stream = null;
 
-function getVisitors(){
-  return JSON.parse(localStorage.getItem("churchVisitors") || "[]");
-}
-function saveVisitors(v){ localStorage.setItem("churchVisitors", JSON.stringify(v)); }
 
 function toggleInviter(){
   const heard = (document.getElementById("heard").value || "").trim().toLowerCase();
@@ -555,12 +551,6 @@ document.getElementById("visitorForm").addEventListener("submit", async e=>{
       .insert(databaseVisitor);
 
     if (error) throw error;
-
-    // Temporary compatibility copy for the existing admin/welcome screens.
-    // We will remove this after those screens use Supabase Auth + database reads.
-    const all = getVisitors();
-    all.unshift(visitor);
-    saveVisitors(all);
 
     showThankYou();
   } catch (error) {
