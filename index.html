@@ -97,6 +97,14 @@
   table{width:100%;border-collapse:collapse}
   th,td{text-align:left;padding:13px 10px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
   th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  .visitor-row{cursor:pointer}
+  .visitor-row:hover{background:#faf8f4}
+  .visitor-row:focus{outline:3px solid rgba(139,94,60,.18);outline-offset:-3px}
+  .detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+  .detail-item{padding:14px;background:#faf8f4;border-radius:12px}
+  .detail-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+  .detail-value{font-size:17px;font-weight:600;word-break:break-word}
+  @media (max-width:760px){.detail-grid{grid-template-columns:1fr}}
   .pill{display:inline-block;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:600;background:#f2eee8}
   .pill.first{background:#efe6dc;color:#6f4528}
   .pill.returning{background:#e8f1f8;color:#245472}
@@ -338,6 +346,66 @@
         </table>
       </div>
 
+      <div id="visitorDetailTab" class="hidden">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+          <button type="button" class="btn-secondary" onclick="closeVisitorDetail()">← Back to Visitors</button>
+        </div>
+
+        <h2 id="detailName" style="margin:0 0 20px">Visitor Details</h2>
+
+        <div class="detail-grid">
+          <div class="detail-item">
+            <div class="detail-label">Visit Type</div>
+            <div id="detailVisitType" class="detail-value">—</div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">Registered</div>
+            <div id="detailRegistered" class="detail-value">—</div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">Phone</div>
+            <div id="detailPhone" class="detail-value">—</div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">Email</div>
+            <div id="detailEmail" class="detail-value">—</div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">City / State</div>
+            <div id="detailLocation" class="detail-value">—</div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">Birthday</div>
+            <div id="detailBirthday" class="detail-value">—</div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">How They Heard About Us</div>
+            <div id="detailHeard" class="detail-value">—</div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">Invited By</div>
+            <div id="detailInvitedBy" class="detail-value">—</div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">Follow-Up Permission</div>
+            <div id="detailFollowup" class="detail-value">—</div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">Welcome Screen Permission</div>
+            <div id="detailWelcome" class="detail-value">—</div>
+          </div>
+        </div>
+      </div>
+
       <div id="welcomeTab" class="hidden">
         <div class="welcome-preview">
           <h3>WELCOME VISITORS</h3>
@@ -515,10 +583,67 @@ async function closeVisitorConnect(){
 function showAdminTab(tab){
   document.getElementById("listTab").classList.toggle("hidden", tab!=="list");
   document.getElementById("welcomeTab").classList.toggle("hidden", tab!=="welcome");
+  document.getElementById("visitorDetailTab").classList.add("hidden");
   document.getElementById("tabList").classList.toggle("active", tab==="list");
   document.getElementById("tabWelcome").classList.toggle("active", tab==="welcome");
   if(tab==="welcome") renderWelcome();
 }
+function formatBirthday(visitor){
+  if (!visitor.birth_month && !visitor.birth_day && !visitor.birth_year) return "—";
+
+  const months = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  const parts = [];
+  if (visitor.birth_month) parts.push(months[visitor.birth_month] || visitor.birth_month);
+  if (visitor.birth_day) parts.push(visitor.birth_day);
+  if (visitor.birth_year) parts.push(visitor.birth_year);
+
+  return parts.join(" ");
+}
+
+function openVisitorDetail(visitorId){
+  const visitor = window.currentVisitors?.find(x => x.id === visitorId);
+  if (!visitor) return;
+
+  document.getElementById("listTab").classList.add("hidden");
+  document.getElementById("welcomeTab").classList.add("hidden");
+  document.getElementById("visitorDetailTab").classList.remove("hidden");
+
+  document.getElementById("detailName").textContent =
+    `${visitor.first_name || ""} ${visitor.last_name || ""}`.trim() || "Visitor Details";
+
+  document.getElementById("detailVisitType").textContent = visitor.visit_type || "—";
+  document.getElementById("detailPhone").textContent = visitor.phone || "—";
+  document.getElementById("detailEmail").textContent = visitor.email || "—";
+
+  const location = [visitor.city, visitor.state].filter(Boolean).join(", ");
+  document.getElementById("detailLocation").textContent = location || "—";
+
+  document.getElementById("detailBirthday").textContent = formatBirthday(visitor);
+  document.getElementById("detailHeard").textContent = visitor.heard_about_us || "—";
+  document.getElementById("detailInvitedBy").textContent = visitor.invited_by || "—";
+  document.getElementById("detailFollowup").textContent =
+    visitor.contact_permission ? "Yes" : "No";
+  document.getElementById("detailWelcome").textContent =
+    visitor.display_permission ? "Yes" : "No";
+
+  document.getElementById("detailRegistered").textContent =
+    visitor.created_at
+      ? new Date(visitor.created_at).toLocaleString([], {
+          dateStyle: "medium",
+          timeStyle: "short"
+        })
+      : "—";
+}
+
+function closeVisitorDetail(){
+  document.getElementById("visitorDetailTab").classList.add("hidden");
+  document.getElementById("listTab").classList.remove("hidden");
+}
+
 async function startCamera(){
   try{
     if(stream) stream.getTracks().forEach(t=>t.stop());
@@ -699,6 +824,8 @@ async function renderAdmin(){
       && created.getDate() === now.getDate();
   });
 
+  window.currentVisitors = today;
+
   document.getElementById("statToday").textContent = today.length;
   document.getElementById("statFirst").textContent =
     today.filter(x => x.visit_type === "First Time").length;
@@ -708,7 +835,10 @@ async function renderAdmin(){
     today.filter(x => x.contact_permission).length;
 
   rows.innerHTML = today.length ? today.map(x => `
-    <tr>
+    <tr class="visitor-row"
+        tabindex="0"
+        onclick="openVisitorDetail('${x.id}')"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openVisitorDetail('${x.id}')}">
       <td><strong>${esc(x.first_name)} ${esc(x.last_name)}</strong></td>
       <td><span class="pill ${x.visit_type === "First Time" ? "first" : "returning"}">${esc(x.visit_type || "—")}</span></td>
       <td>${esc(x.phone || "—")}<br><span class="subtle">${esc(x.email || "")}</span></td>
