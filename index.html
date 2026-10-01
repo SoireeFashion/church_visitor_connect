@@ -280,8 +280,8 @@
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
           <h3 style="margin:0">Today's Visitors</h3>
           <div>
-            <button class="btn-ghost" onclick="seedDemo()">Load Demo Visitors</button>
-            <button class="btn-danger" onclick="clearVisitors()">Clear Visitor Data</button>
+            
+            
           </div>
         </div>
         <table>
@@ -570,44 +570,88 @@ document.getElementById("visitorForm").addEventListener("submit", async e=>{
     if (submitButton) submitButton.disabled = false;
   }
 });
-function renderAdmin(){
-  const v=getVisitors();
-  document.getElementById("statToday").textContent=v.length;
-  document.getElementById("statFirst").textContent=v.filter(x=>x.visitType==="First Time").length;
-  document.getElementById("statReturning").textContent=v.filter(x=>x.visitType==="Returning").length;
-  document.getElementById("statFollowup").textContent=v.filter(x=>x.contactPermission).length;
-  const rows=document.getElementById("visitorRows");
-  rows.innerHTML = v.length ? v.map(x=>`
+async function renderAdmin(){
+  const rows = document.getElementById("visitorRows");
+  rows.innerHTML = `<tr><td colspan="7" class="subtle">Loading visitors...</td></tr>`;
+
+  const { data: visitors, error } = await supabaseClient
+    .from("visitors")
+    .select("*")
+    .eq("church_id", CHURCH_ID)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Visitor dashboard error:", error);
+    rows.innerHTML = `<tr><td colspan="7" class="subtle">Unable to load visitor registrations.</td></tr>`;
+    return;
+  }
+
+  const v = visitors || [];
+
+  document.getElementById("statToday").textContent = v.length;
+  document.getElementById("statFirst").textContent =
+    v.filter(x => x.visit_type === "First Time").length;
+  document.getElementById("statReturning").textContent =
+    v.filter(x => x.visit_type === "Returning").length;
+  document.getElementById("statFollowup").textContent =
+    v.filter(x => x.contact_permission).length;
+
+  rows.innerHTML = v.length ? v.map(x => `
     <tr>
-      <td><strong>${esc(x.firstName)} ${esc(x.lastName)}</strong></td>
-      <td><span class="pill ${x.visitType==="First Time"?"first":"returning"}">${esc(x.visitType||"—")}</span></td>
-      <td>${esc(x.phone||"—")}<br><span class="subtle">${esc(x.email||"")}</span></td>
-      <td>${esc(x.heard||"—")}</td>
-      <td>${esc(x.inviter||"—")}</td>
-      <td>${x.contactPermission?"Yes":"No"}</td>
-      <td>${x.displayPermission?"Yes":"No"}</td>
+      <td><strong>${esc(x.first_name)} ${esc(x.last_name)}</strong></td>
+      <td><span class="pill ${x.visit_type === "First Time" ? "first" : "returning"}">${esc(x.visit_type || "—")}</span></td>
+      <td>${esc(x.phone || "—")}<br><span class="subtle">${esc(x.email || "")}</span></td>
+      <td>${esc(x.heard_about_us || "—")}</td>
+      <td>${esc(x.invited_by || "—")}</td>
+      <td>${x.contact_permission ? "Yes" : "No"}</td>
+      <td>${x.display_permission ? "Yes" : "No"}</td>
     </tr>`).join("") :
     `<tr><td colspan="7" class="subtle">No visitor registrations yet.</td></tr>`;
-  renderWelcome();
+
+  renderWelcome(v);
 }
-function renderWelcome(){
-  const names=getVisitors().filter(x=>x.displayPermission).map(x=>`${esc(x.firstName)} ${esc(x.lastName)}`);
-  document.getElementById("welcomeNames").innerHTML = names.length ? names.join("<br>") : "No approved visitors yet.";
-}
-function esc(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
-function clearVisitors(){
-  if(confirm("Clear all visitor data stored on this device?")){
-    localStorage.removeItem("churchVisitors"); renderAdmin();
+
+async function renderWelcome(visitors=null){
+  let v = visitors;
+
+  if (!v) {
+    const { data, error } = await supabaseClient
+      .from("visitors")
+      .select("first_name,last_name,display_permission")
+      .eq("church_id", CHURCH_ID)
+      .eq("display_permission", true)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Welcome screen error:", error);
+      document.getElementById("welcomeNames").textContent =
+        "Unable to load approved visitors.";
+      return;
+    }
+
+    v = data || [];
   }
+
+  const names = v
+    .filter(x => x.display_permission)
+    .map(x => `${esc(x.first_name)} ${esc(x.last_name)}`);
+
+  document.getElementById("welcomeNames").innerHTML =
+    names.length ? names.join("<br>") : "No approved visitors yet.";
 }
-function seedDemo(){
-  const demo=[
-    {id:1,date:new Date().toISOString(),firstName:"Angela",lastName:"Brown",visitType:"First Time",phone:"(555) 555-0184",email:"angela@example.com",heard:"Invited by a Member/Friend",inviter:"Mary Johnson",contactPermission:true,displayPermission:true},
-    {id:2,date:new Date().toISOString(),firstName:"David",lastName:"Smith",visitType:"Returning",phone:"(555) 555-0167",email:"david@example.com",heard:"Facebook",inviter:"",contactPermission:true,displayPermission:true},
-    {id:3,date:new Date().toISOString(),firstName:"Carla",lastName:"Reed",visitType:"First Time",phone:"(555) 555-0142",email:"",heard:"Google / Search",inviter:"",contactPermission:false,displayPermission:false}
-  ];
-  saveVisitors(demo); renderAdmin();
+
+function esc(s=""){
+  return String(s).replace(/[&<>"']/g,m=>({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#039;"
+  }[m]));
 }
+
+
+
 </script>
 </body>
 </html>
