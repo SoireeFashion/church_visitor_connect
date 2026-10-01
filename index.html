@@ -690,15 +690,24 @@ async function renderAdmin(){
 
   const v = visitors || [];
 
-  document.getElementById("statToday").textContent = v.length;
-  document.getElementById("statFirst").textContent =
-    v.filter(x => x.visit_type === "First Time").length;
-  document.getElementById("statReturning").textContent =
-    v.filter(x => x.visit_type === "Returning").length;
-  document.getElementById("statFollowup").textContent =
-    v.filter(x => x.contact_permission).length;
+  // Dashboard and visitor list show registrations from today only.
+  const now = new Date();
+  const today = v.filter(x => {
+    const created = new Date(x.created_at);
+    return created.getFullYear() === now.getFullYear()
+      && created.getMonth() === now.getMonth()
+      && created.getDate() === now.getDate();
+  });
 
-  rows.innerHTML = v.length ? v.map(x => `
+  document.getElementById("statToday").textContent = today.length;
+  document.getElementById("statFirst").textContent =
+    today.filter(x => x.visit_type === "First Time").length;
+  document.getElementById("statReturning").textContent =
+    today.filter(x => x.visit_type === "Returning").length;
+  document.getElementById("statFollowup").textContent =
+    today.filter(x => x.contact_permission).length;
+
+  rows.innerHTML = today.length ? today.map(x => `
     <tr>
       <td><strong>${esc(x.first_name)} ${esc(x.last_name)}</strong></td>
       <td><span class="pill ${x.visit_type === "First Time" ? "first" : "returning"}">${esc(x.visit_type || "—")}</span></td>
@@ -710,7 +719,7 @@ async function renderAdmin(){
     </tr>`).join("") :
     `<tr><td colspan="7" class="subtle">No visitor registrations yet.</td></tr>`;
 
-  renderWelcome(v);
+  renderWelcome(today);
 }
 
 async function renderWelcome(visitors=null){
