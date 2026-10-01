@@ -327,6 +327,7 @@
       <div class="admin-tabs">
         <button class="tab active btn-secondary" id="tabList" onclick="showAdminTab('list')">Visitor List</button>
         <button class="tab btn-secondary" id="tabFollowup" onclick="showAdminTab('followup')">Follow-Up Queue</button>
+        <button class="tab btn-secondary" id="tabHistory" onclick="showAdminTab('history')">Visitor History</button>
         <button class="tab btn-secondary" id="tabWelcome" onclick="showAdminTab('welcome')">Welcome Screen Preview</button>
         <button class="btn-ghost" type="button" onclick="adminLogout()" style="margin-left:auto">Log Out</button>
       </div>
@@ -369,6 +370,37 @@
             </tr>
           </thead>
           <tbody id="followupRows"></tbody>
+        </table>
+      </div>
+
+      <div id="historyTab" class="hidden">
+        <div style="margin-bottom:16px">
+          <h3 style="margin:0 0 4px">Visitor History</h3>
+          <div class="subtle">
+            Search previous visitors and identify people who have returned.
+          </div>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <label for="historySearch">Search Visitors</label>
+          <input id="historySearch"
+                 type="search"
+                 placeholder="Search by name, phone, or email"
+                 oninput="renderVisitorHistory()"
+                 autocomplete="off" />
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Total Visits</th>
+              <th>First Visit</th>
+              <th>Most Recent</th>
+              <th>Visitor Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyRows"></tbody>
         </table>
       </div>
 
@@ -606,24 +638,32 @@ function showAdmin(role="admin"){
   document.getElementById("adminView").classList.remove("hidden");
 
   const tabList = document.getElementById("tabList");
+  const tabFollowup = document.getElementById("tabFollowup");
+  const tabHistory = document.getElementById("tabHistory");
   const tabWelcome = document.getElementById("tabWelcome");
   const stats = document.getElementById("dashboardStats");
 
   if(role === "media"){
     stats.classList.add("hidden");
     tabList.classList.add("hidden");
+    tabFollowup.classList.add("hidden");
+    tabHistory.classList.add("hidden");
     tabWelcome.classList.remove("hidden");
     showAdminTab("welcome");
   }
   else if(role === "outreach"){
     stats.classList.remove("hidden");
     tabList.classList.remove("hidden");
+    tabFollowup.classList.remove("hidden");
+    tabHistory.classList.remove("hidden");
     tabWelcome.classList.add("hidden");
     showAdminTab("list");
   }
   else{
     stats.classList.remove("hidden");
     tabList.classList.remove("hidden");
+    tabFollowup.classList.remove("hidden");
+    tabHistory.classList.remove("hidden");
     tabWelcome.classList.remove("hidden");
     showAdminTab("list");
   }
@@ -669,14 +709,17 @@ async function closeVisitorConnect(){
 function showAdminTab(tab){
   document.getElementById("listTab").classList.toggle("hidden", tab!=="list");
   document.getElementById("followupTab").classList.toggle("hidden", tab!=="followup");
+  document.getElementById("historyTab").classList.toggle("hidden", tab!=="history");
   document.getElementById("welcomeTab").classList.toggle("hidden", tab!=="welcome");
   document.getElementById("visitorDetailTab").classList.add("hidden");
 
   document.getElementById("tabList").classList.toggle("active", tab==="list");
   document.getElementById("tabFollowup").classList.toggle("active", tab==="followup");
+  document.getElementById("tabHistory").classList.toggle("active", tab==="history");
   document.getElementById("tabWelcome").classList.toggle("active", tab==="welcome");
 
   if(tab==="followup") renderFollowUpQueue();
+  if(tab==="history") renderVisitorHistory();
   if(tab==="welcome") renderWelcome();
 }
 function formatBirthday(visitor){
@@ -774,6 +817,7 @@ function openVisitorDetail(visitorId, source="list"){
 
   document.getElementById("listTab").classList.add("hidden");
   document.getElementById("followupTab").classList.add("hidden");
+  document.getElementById("historyTab").classList.add("hidden");
   document.getElementById("welcomeTab").classList.add("hidden");
   document.getElementById("visitorDetailTab").classList.remove("hidden");
 
@@ -918,6 +962,9 @@ function closeVisitorDetail(){
   if (window.visitorDetailSource === "followup") {
     document.getElementById("followupTab").classList.remove("hidden");
     renderFollowUpQueue();
+  } else if (window.visitorDetailSource === "history") {
+    document.getElementById("historyTab").classList.remove("hidden");
+    renderVisitorHistory();
   } else {
     document.getElementById("listTab").classList.remove("hidden");
   }
@@ -1135,6 +1182,138 @@ async function renderAdmin(){
     `<tr><td colspan="7" class="subtle">No visitor registrations yet.</td></tr>`;
 
   renderWelcome(today);
+}
+
+function normalizeEmail(value=""){
+  return String(value).trim().toLowerCase();
+}
+
+function normalizePhone(value=""){
+  return String(value).replace(/\D/g, "");
+}
+
+function normalizeName(visitor){
+  return `${visitor.first_name || ""} ${visitor.last_name || ""}`
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function visitorIdentity(visitor){
+  const email = normalizeEmail(visitor.email);
+  const phone = normalizePhone(visitor.phone);
+
+  if (email) return `email:${email}`;
+  if (phone) return `phone:${phone}`;
+
+  return `name:${normalizeName(visitor)}`;
+}
+
+function renderVisitorHistory(){
+  const rows = document.getElementById("historyRows");
+  const visitors = window.allVisitors || [];
+  const search = (document.getElementById("historySearch")?.value || "")
+    .trim()
+    .toLowerCase();
+
+  const people = new Map();
+
+  visitors.forEach(visitor => {
+    const key = visitorIdentity(visitor);
+
+    if (!people.has(key)) {
+      people.set(key, []);
+    }
+
+    people.get(key).push(visitor);
+  });
+
+  let history = Array.from(people.values()).map(visits => {
+    visits.sort((a,b) =>
+      new Date(a.created_at) - new Date(b.created_at)
+    );
+
+    return {
+      visits,
+      first: visits[0],
+      latest: visits[visits.length - 1],
+      count: visits.length
+    };
+  });
+
+  if (search) {
+    const searchDigits = normalizePhone(search);
+
+    history = history.filter(person => {
+      return person.visits.some(visitor => {
+        const name = normalizeName(visitor);
+        const email = normalizeEmail(visitor.email);
+        const phone = normalizePhone(visitor.phone);
+
+        return name.includes(search) ||
+               email.includes(search) ||
+               (searchDigits && phone.includes(searchDigits));
+      });
+    });
+  }
+
+  history.sort((a,b) =>
+    new Date(b.latest.created_at) - new Date(a.latest.created_at)
+  );
+
+  rows.innerHTML = history.length ? history.map(person => {
+    const visitor = person.latest;
+
+    const firstVisit = person.first.created_at
+      ? new Date(person.first.created_at).toLocaleDateString([], {
+          month:"short",
+          day:"numeric",
+          year:"numeric"
+        })
+      : "—";
+
+    const latestVisit = visitor.created_at
+      ? new Date(visitor.created_at).toLocaleDateString([], {
+          month:"short",
+          day:"numeric",
+          year:"numeric"
+        })
+      : "—";
+
+    let status = "First-Time Visitor";
+
+    if (person.count >= 3) {
+      status = "🎁 Appreciation Opportunity";
+    } else if (person.count > 1) {
+      status = "Returning Visitor";
+    }
+
+    return `
+      <tr class="visitor-row"
+          tabindex="0"
+          onclick="openVisitorDetail('${visitor.id}', 'history')"
+          onkeydown="if(event.key==='Enter'||event.key===' '){
+            event.preventDefault();
+            openVisitorDetail('${visitor.id}', 'history')
+          }">
+        <td>
+          <strong>${esc(visitor.first_name)} ${esc(visitor.last_name)}</strong>
+          <br>
+          <span class="subtle">
+            ${esc(visitor.phone || visitor.email || "")}
+          </span>
+        </td>
+        <td><strong>${person.count}</strong></td>
+        <td>${firstVisit}</td>
+        <td>${latestVisit}</td>
+        <td>${status}</td>
+      </tr>`;
+  }).join("") :
+    `<tr>
+       <td colspan="5" class="subtle">
+         No visitors match your search.
+       </td>
+     </tr>`;
 }
 
 function renderFollowUpQueue(){
