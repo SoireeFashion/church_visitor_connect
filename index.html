@@ -743,8 +743,18 @@ async function saveFollowUp(){
   const button = document.getElementById("saveFollowUpButton");
   const message = document.getElementById("followUpMessage");
 
-  const followedUpAt =
-    status === "Contacted" ? new Date().toISOString() : null;
+  const existingVisitor =
+    window.allVisitors?.find(x => x.id === visitorId);
+
+  let followedUpAt = existingVisitor?.followed_up_at || null;
+
+  if (status === "Contacted" && !followedUpAt) {
+    followedUpAt = new Date().toISOString();
+  }
+
+  if (status === "Not Contacted") {
+    followedUpAt = null;
+  }
 
   button.disabled = true;
   button.textContent = "Saving...";
