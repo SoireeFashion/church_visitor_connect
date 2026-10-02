@@ -316,6 +316,59 @@
     </div>
   </section>
 
+  <section id="resetPasswordView" class="hidden">
+    <div class="hero">
+      <h2>Create New Password</h2>
+      <p>Choose a new password for your Visitor Connect account.</p>
+    </div>
+
+    <div class="card" style="max-width:520px;margin:0 auto">
+      <form id="resetPasswordForm">
+
+        <div style="margin-bottom:16px">
+          <label for="newPassword">New Password</label>
+          <input id="newPassword"
+                 type="password"
+                 autocomplete="new-password"
+                 minlength="8"
+                 required
+                 style="font-size:18px" />
+        </div>
+
+        <div style="margin-bottom:16px">
+          <label for="confirmNewPassword">Confirm New Password</label>
+          <input id="confirmNewPassword"
+                 type="password"
+                 autocomplete="new-password"
+                 minlength="8"
+                 required
+                 style="font-size:18px" />
+        </div>
+
+        <label style="display:flex;align-items:center;gap:10px;
+                     margin-bottom:20px;font-size:16px;font-weight:500;
+                     cursor:pointer">
+          <input id="showNewPasswords"
+                 type="checkbox"
+                 style="width:22px;height:22px;flex:none" />
+          Show passwords
+        </label>
+
+        <div id="resetPasswordMessage"
+             class="hidden"
+             style="color:var(--danger);margin-bottom:16px">
+        </div>
+
+        <button class="btn-primary"
+                type="submit"
+                style="width:100%">
+          Update Password
+        </button>
+
+      </form>
+    </div>
+  </section>
+
   <section id="adminView" class="hidden">
     <div class="hero">
       <h2>Visitor Dashboard</h2>
@@ -1051,6 +1104,84 @@ async function requestPasswordReset(){
     errorBox.classList.remove("hidden");
   }
 }
+
+const resetPasswordView = document.getElementById("resetPasswordView");
+
+document.getElementById("showNewPasswords").addEventListener("change", e => {
+  const type = e.target.checked ? "text" : "password";
+  document.getElementById("newPassword").type = type;
+  document.getElementById("confirmNewPassword").type = type;
+});
+
+function showResetPasswordView(){
+  document.getElementById("registrationView").classList.add("hidden");
+  document.getElementById("thankYouView").classList.add("hidden");
+  document.getElementById("adminLoginView").classList.add("hidden");
+  document.getElementById("adminView").classList.add("hidden");
+  resetPasswordView.classList.remove("hidden");
+}
+
+document.getElementById("resetPasswordForm").addEventListener("submit", async e => {
+  e.preventDefault();
+
+  const password = document.getElementById("newPassword").value;
+  const confirmPassword = document.getElementById("confirmNewPassword").value;
+  const message = document.getElementById("resetPasswordMessage");
+  const button = e.target.querySelector('button[type="submit"]');
+
+  message.classList.add("hidden");
+  message.style.color = "var(--danger)";
+
+  if (password !== confirmPassword) {
+    message.textContent = "The passwords do not match.";
+    message.classList.remove("hidden");
+    return;
+  }
+
+  if (password.length < 8) {
+    message.textContent = "Password must be at least 8 characters.";
+    message.classList.remove("hidden");
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = "Updating Password...";
+
+  try {
+    const { error } = await supabaseClient.auth.updateUser({
+      password
+    });
+
+    if (error) throw error;
+
+    await supabaseClient.auth.signOut();
+
+    e.target.reset();
+    resetPasswordView.classList.add("hidden");
+    document.getElementById("adminLoginView").classList.remove("hidden");
+
+    const loginMessage = document.getElementById("adminLoginError");
+    loginMessage.style.color = "var(--success, green)";
+    loginMessage.textContent = "Password updated. Sign in with your new password.";
+    loginMessage.classList.remove("hidden");
+
+    history.replaceState(null, "", window.location.pathname);
+
+  } catch (error) {
+    console.error("Password update error:", error);
+    message.textContent = "Unable to update your password. Please request a new reset link.";
+    message.classList.remove("hidden");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Update Password";
+  }
+});
+
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (event === "PASSWORD_RECOVERY") {
+    showResetPasswordView();
+  }
+});
 
 document.getElementById("adminLoginForm").addEventListener("submit", async e => {
   e.preventDefault();
