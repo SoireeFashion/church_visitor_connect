@@ -1823,13 +1823,17 @@ function normalizeName(visitor){
 }
 
 function visitorIdentity(visitor){
+  const name = normalizeName(visitor);
   const email = normalizeEmail(visitor.email);
   const phone = normalizePhone(visitor.phone);
 
-  if (email) return `email:${email}`;
-  if (phone) return `phone:${phone}`;
+  // Match repeat visits conservatively:
+  // same name PLUS phone or email.
+  if (phone) return `name:${name}|phone:${phone}`;
+  if (email) return `name:${name}|email:${email}`;
 
-  return `name:${normalizeName(visitor)}`;
+  // No contact information available.
+  return `name:${name}`;
 }
 
 function renderVisitorHistory(){
