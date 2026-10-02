@@ -401,7 +401,7 @@
         </div>
         <table>
           <thead>
-            <tr><th>Name</th><th>Visit</th><th>Phone / Email</th><th>Heard About Us</th><th>Invited By</th><th>Follow-Up</th><th>Welcome Screen</th></tr>
+            <tr id="visitorTableHead"><th>Name</th><th>Visit</th><th>Phone / Email</th><th>Heard About Us</th><th>Invited By</th><th>Follow-Up</th><th>Welcome Screen</th></tr>
           </thead>
           <tbody id="visitorRows"></tbody>
         </table>
@@ -690,7 +690,10 @@ async function protectAdminView(){
 window.addEventListener("pageshow", protectAdminView);
 window.addEventListener("popstate", protectAdminView);
 
+let CURRENT_STAFF_ROLE = null;
+
 function showAdmin(role="admin"){
+  CURRENT_STAFF_ROLE = role;
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
   document.getElementById("adminLoginView").classList.add("hidden");
@@ -701,6 +704,15 @@ function showAdmin(role="admin"){
   const tabHistory = document.getElementById("tabHistory");
   const tabWelcome = document.getElementById("tabWelcome");
   const stats = document.getElementById("dashboardStats");
+  const visitorTableHead = document.getElementById("visitorTableHead");
+
+  if (role === "greeter") {
+    visitorTableHead.innerHTML =
+      "<th>Name</th><th>Visit</th><th>Arrival Time</th><th>Invited By</th>";
+  } else {
+    visitorTableHead.innerHTML =
+      "<th>Name</th><th>Visit</th><th>Phone / Email</th><th>Heard About Us</th><th>Invited By</th><th>Follow-Up</th><th>Welcome Screen</th>";
+  }
 
   if(role === "media"){
     stats.classList.add("hidden");
@@ -718,13 +730,26 @@ function showAdmin(role="admin"){
     tabWelcome.classList.add("hidden");
     showAdminTab("list");
   }
-  else{
+  else if(role === "greeter"){
+    stats.classList.add("hidden");
+    tabList.classList.remove("hidden");
+    tabFollowup.classList.add("hidden");
+    tabHistory.classList.add("hidden");
+    tabWelcome.classList.add("hidden");
+    showAdminTab("list");
+  }
+  else if(role === "admin"){
     stats.classList.remove("hidden");
     tabList.classList.remove("hidden");
     tabFollowup.classList.remove("hidden");
     tabHistory.classList.remove("hidden");
     tabWelcome.classList.remove("hidden");
     showAdminTab("list");
+  }
+  else{
+    console.error("Unknown staff role:", role);
+    adminLogout();
+    return;
   }
 
   renderAdmin();
@@ -1341,8 +1366,70 @@ document.getElementById("visitorForm").addEventListener("submit", async e=>{
 });
 async function renderAdmin(){
   const rows = document.getElementById("visitorRows");
-  rows.innerHTML = `<tr><td colspan="7" class="subtle">Loading visitors...</td></tr>`;
 
+  // MEDIA: only load names approved for the Welcome Screen.
+  if (CURRENT_STAFF_ROLE === "media") {
+    const { data, error } = await supabaseClient.rpc(
+      "get_media_welcome_visitors",
+      { target_church_id: CHURCH_ID }
+    );
+
+    if (error) {
+      console.error("Media welcome screen error:", error);
+      document.getElementById("welcomeNames").textContent =
+        "Unable to load approved visitors.";
+      return;
+    }
+
+    const visitors = data || [];
+    window.currentVisitors = visitors;
+    window.allVisitors = visitors;
+
+    renderWelcome(visitors);
+    return;
+  }
+
+  // GREETER / USHER: only load safe front-door visitor fields.
+  if (CURRENT_STAFF_ROLE === "greeter") {
+    rows.innerHTML =
+      `<tr><td colspan="7" class="subtle">Loading today's visitors...</td></tr>`;
+
+    const { data, error } = await supabaseClient.rpc(
+      "get_greeter_visitors",
+      { target_church_id: CHURCH_ID }
+    );
+
+    if (error) {
+      console.error("Greeter visitor error:", error);
+      rows.innerHTML =
+        `<tr><td colspan="7" class="subtle">Unable to load today's visitors.</td></tr>`;
+      return;
+    }
+
+    const visitors = data || [];
+    window.currentVisitors = visitors;
+    window.allVisitors = visitors;
+
+    rows.innerHTML = visitors.length ? visitors.map(x => `
+      <tr>
+        <td><strong>${esc(x.first_name)} ${esc(x.last_name)}</strong></td>
+        <td>
+          <span class="pill ${x.visit_type === "First Time" ? "first" : "returning"}">
+            ${esc(x.visit_type || "—")}
+          </span>
+        </td>
+        <td>${new Date(x.created_at).toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit"
+        })}</td>
+        <td>${esc(x.invited_by || "—")}</td>
+      </tr>`).join("") :
+      `<tr><td colspan="4" class="subtle">No visitor registrations yet today.</td></tr>`;
+
+    return;
+  }
+
+  // ADMIN + OUTREACH: full visitor data permitted by RLS.
   const { data: visitors, error } = await supabaseClient
     .from("visitors")
     .select("*")
@@ -1351,14 +1438,14 @@ async function renderAdmin(){
 
   if (error) {
     console.error("Visitor dashboard error:", error);
-    rows.innerHTML = `<tr><td colspan="7" class="subtle">Unable to load visitor registrations.</td></tr>`;
+    rows.innerHTML =
+      `<tr><td colspan="7" class="subtle">Unable to load visitor registrations.</td></tr>`;
     return;
   }
 
   const v = visitors || [];
   window.allVisitors = v;
 
-  // Dashboard and visitor list show registrations from today only.
   const now = new Date();
   const today = v.filter(x => {
     const created = new Date(x.created_at);
@@ -1374,6 +1461,7 @@ async function renderAdmin(){
     today.filter(x => x.visit_type === "First Time").length;
   document.getElementById("statReturning").textContent =
     today.filter(x => x.visit_type === "Returning").length;
+
   const followUpNeeded = v.filter(x =>
     x.contact_permission &&
     (x.follow_up_status || "Not Contacted") !== "Contacted"
@@ -1397,7 +1485,9 @@ async function renderAdmin(){
     </tr>`).join("") :
     `<tr><td colspan="7" class="subtle">No visitor registrations yet.</td></tr>`;
 
-  renderWelcome(today);
+  if (CURRENT_STAFF_ROLE === "admin") {
+    renderWelcome(today);
+  }
 }
 
 function normalizeEmail(value=""){
@@ -1595,8 +1685,12 @@ async function renderWelcome(visitors=null){
     v = data || [];
   }
 
-  const names = v
-    .filter(x => x.display_permission)
+  const approvedVisitors =
+    CURRENT_STAFF_ROLE === "media"
+      ? v
+      : v.filter(x => x.display_permission);
+
+  const names = approvedVisitors
     .map(x => `${esc(x.first_name)} ${esc(x.last_name)}`);
 
   document.getElementById("welcomeNames").innerHTML =
