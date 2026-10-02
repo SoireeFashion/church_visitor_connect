@@ -1062,12 +1062,61 @@ const heardSelect = document.getElementById("heard");
 heardSelect.addEventListener("touchend", () => setTimeout(toggleInviter, 200));
 
 const SUPABASE_URL = "https://qfgmgkbnfhkucheyuuai.supabase.co";
-const CHURCH_ID = "e2784d66-2082-4bef-b3bd-2b0a20e9142a";
+let CHURCH_ID = null;
+let CURRENT_CHURCH = null;
+
+async function loadChurchConfiguration() {
+  const params = new URLSearchParams(window.location.search);
+  const churchSlug = params.get("church");
+
+  if (!churchSlug) {
+    throw new Error("No church was specified in this Visitor Connect link.");
+  }
+
+  const { data, error } = await supabaseClient.rpc(
+    "get_public_church_by_slug",
+    { target_slug: churchSlug }
+  );
+
+  if (error) throw error;
+
+  const church = Array.isArray(data) ? data[0] : data;
+
+  if (!church?.church_id) {
+    throw new Error("This church could not be found.");
+  }
+
+  CHURCH_ID = church.church_id;
+  CURRENT_CHURCH = church;
+
+  return church;
+}
 
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   window.VISITOR_CONNECT_SUPABASE_KEY
 );
+
+async function initializeVisitorConnect() {
+  try {
+    const church = await loadChurchConfiguration();
+
+    console.log("Visitor Connect church loaded:", church.church_name);
+
+  } catch (error) {
+    console.error("Church configuration error:", error);
+
+    document.body.innerHTML = `
+      <main style="max-width:600px;margin:60px auto;padding:24px;text-align:center">
+        <h1>Visitor Connect</h1>
+        <p>We couldn't load this church's registration page.</p>
+        <p>Please check the link or contact the church for assistance.</p>
+      </main>
+    `;
+  }
+}
+
+initializeVisitorConnect();
 
 document.getElementById("showAdminPassword").addEventListener("change", e => {
   const password = document.getElementById("adminPassword");
