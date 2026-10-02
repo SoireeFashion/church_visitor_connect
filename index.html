@@ -226,7 +226,15 @@
         <div class="subtle" style="margin-top:5px">You can skip this if you prefer.</div>
         <div style="margin-top:12px">
           <button type="button" class="btn-secondary" onclick="startCamera()">Take My Photo</button>
+          <button type="button" class="btn-secondary" onclick="document.getElementById('photoUpload').click()">Upload Photo</button>
           <button type="button" class="btn-ghost" onclick="skipPhoto()">Skip</button>
+          <input
+            type="file"
+            id="photoUpload"
+            accept="image/jpeg,image/png,image/webp"
+            class="hidden"
+            onchange="handlePhotoUpload(event)"
+          />
         </div>
         <video id="video" class="hidden" autoplay playsinline></video>
         <canvas id="canvas" class="hidden"></canvas>
@@ -371,8 +379,8 @@
 
   <section id="adminView" class="hidden">
     <div class="hero">
-      <h2>Visitor Dashboard</h2>
-      <p>Church visitor management.</p>
+      <h2 id="dashboardTitle">Visitor Dashboard</h2>
+      <p id="dashboardSubtitle">Church visitor management.</p>
     </div>
 
     <div class="stats" id="dashboardStats">
@@ -469,6 +477,15 @@
         </div>
 
         <h2 id="detailName" style="margin:0 0 20px">Visitor Details</h2>
+
+        <div id="detailPhotoArea" class="hidden" style="margin-bottom:24px">
+          <img
+            id="detailPhoto"
+            src=""
+            alt=""
+            style="width:140px;height:175px;object-fit:cover;object-position:center top;border-radius:16px"
+          />
+        </div>
 
         <div class="detail-grid">
           <div class="detail-item">
@@ -626,7 +643,10 @@ function showRegistration(reset=false){
     document.getElementById("inviterWrap").classList.add("hidden");
     document.getElementById("photoPreview").classList.add("hidden");
     document.getElementById("video").classList.add("hidden");
-    document.getElementById("cameraActions").classList.add("hidden");
+    const cameraActions = document.getElementById("cameraActions");
+    if (cameraActions) {
+      cameraActions.classList.add("hidden");
+    }
     photoData="";
   }
 }
@@ -693,6 +713,33 @@ window.addEventListener("popstate", protectAdminView);
 let CURRENT_STAFF_ROLE = null;
 
 function showAdmin(role="admin"){
+  const dashboardTitles = {
+    admin: {
+      title: "Visitor Dashboard",
+      subtitle: "Church visitor management."
+    },
+    greeter: {
+      title: "Greeter / Usher Dashboard",
+      subtitle: "Today's visitor arrivals and recognition."
+    },
+    outreach: {
+      title: "Outreach Dashboard",
+      subtitle: "Visitor follow-up and connection."
+    },
+    media: {
+      title: "Media Dashboard",
+      subtitle: "Welcome Screen management."
+    }
+  };
+
+  const dashboardCopy =
+    dashboardTitles[role] || dashboardTitles.admin;
+
+  document.getElementById("dashboardTitle").textContent =
+    dashboardCopy.title;
+
+  document.getElementById("dashboardSubtitle").textContent =
+    dashboardCopy.subtitle;
   CURRENT_STAFF_ROLE = role;
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
@@ -893,7 +940,7 @@ function renderSLA(visitor){
   }
 }
 
-function openVisitorDetail(visitorId, source="list"){
+async function openVisitorDetail(visitorId, source="list"){
   const visitor = window.allVisitors?.find(x => x.id === visitorId);
   if (!visitor) return;
 
@@ -907,6 +954,33 @@ function openVisitorDetail(visitorId, source="list"){
 
   document.getElementById("detailName").textContent =
     `${visitor.first_name || ""} ${visitor.last_name || ""}`.trim() || "Visitor Details";
+
+  const photoArea = document.getElementById("detailPhotoArea");
+  const photo = document.getElementById("detailPhoto");
+
+  // Visitor photos are private and available only to authorized staff.
+  photoArea.classList.add("hidden");
+  photo.removeAttribute("src");
+  photo.alt = "";
+
+  if (
+    visitor.photo_url &&
+    ["admin", "outreach"].includes(CURRENT_STAFF_ROLE)
+  ) {
+    const { data: signedPhoto, error: photoError } =
+      await supabaseClient.storage
+        .from("visitor-photos")
+        .createSignedUrl(visitor.photo_url, 300);
+
+    if (!photoError && signedPhoto?.signedUrl) {
+      photo.src = signedPhoto.signedUrl;
+      photo.alt =
+        `Photo of ${visitor.first_name || "visitor"} ${visitor.last_name || ""}`.trim();
+      photoArea.classList.remove("hidden");
+    } else if (photoError) {
+      console.error("Visitor photo display error:", photoError);
+    }
+  }
 
   document.getElementById("detailVisitType").textContent = visitor.visit_type || "—";
   document.getElementById("detailPhone").textContent = visitor.phone || "—";
@@ -1075,6 +1149,88 @@ function capturePhoto(){
   p.src=photoData; p.classList.remove("hidden"); v.classList.add("hidden");
   if(stream) stream.getTracks().forEach(t=>t.stop());
 }
+function handlePhotoUpload(event){
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+  if (!allowedTypes.includes(file.type)) {
+    alert("Please choose a JPG, PNG, or WebP image.");
+    event.target.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    const img = new Image();
+
+    img.onload = () => {
+      // Normalize uploaded images to JPEG for consistent private storage.
+      const canvas = document.createElement("canvas");
+
+      const maxDimension = 1600;
+      let width = img.naturalWidth;
+      let height = img.naturalHeight;
+
+      if (width > maxDimension || height > maxDimension) {
+        const scale = Math.min(
+          maxDimension / width,
+          maxDimension / height
+        );
+
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+
+      // JPEG has no transparency, so use a white background.
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      photoData = canvas.toDataURL("image/jpeg", 0.82);
+
+      const preview = document.getElementById("photoPreview");
+      const video = document.getElementById("camera");
+
+      preview.src = photoData;
+      preview.classList.remove("hidden");
+
+      if (video) {
+        video.classList.add("hidden");
+      }
+
+      const cameraActions = document.getElementById("cameraActions");
+      if (cameraActions) {
+        cameraActions.classList.add("hidden");
+      }
+
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+    };
+
+    img.onerror = () => {
+      alert("We couldn't process that photo. Please choose another image.");
+    };
+
+    img.src = reader.result;
+  };
+
+  reader.onerror = () => {
+    alert("We couldn't load that photo. Please choose another image.");
+  };
+
+  reader.readAsDataURL(file);
+}
+
 function skipPhoto(){
   photoData="";
   document.getElementById("photoPreview").classList.add("hidden");
@@ -1350,13 +1506,66 @@ document.getElementById("visitorForm").addEventListener("submit", async e=>{
   if (submitButton) submitButton.disabled = true;
 
   try {
-    const { error } = await supabaseClient
-      .from("visitors")
-      .insert(databaseVisitor);
+    // Create the visitor first so Supabase gives us the visitor UUID.
+    const { data: visitorId, error } = await supabaseClient.rpc(
+      "register_visitor",
+      {
+        target_church_id: CHURCH_ID,
+        target_first_name: visitor.firstName,
+        target_last_name: visitor.lastName,
+        target_birth_month: monthNumbers[visitor.birthMonth] || null,
+        target_birth_day: visitor.birthDay ? Number(visitor.birthDay) : null,
+        target_birth_year: visitor.birthYear ? Number(visitor.birthYear) : null,
+        target_email: visitor.email || null,
+        target_phone: visitor.phone || null,
+        target_city: visitor.city || null,
+        target_state: visitor.state || null,
+        target_visit_type: visitor.visitType || null,
+        target_heard_about_us: visitor.heard || null,
+        target_invited_by: visitor.inviter || null,
+        target_contact_permission: visitor.contactPermission,
+        target_display_permission: visitor.displayPermission
+      }
+    );
 
     if (error) throw error;
 
+    const createdVisitor = { id: visitorId };
+
+    // Photo is optional. Registration remains successful if photo upload fails.
+    if (photoData && createdVisitor?.id) {
+      try {
+        const photoBlob = await fetch(photoData).then(response => response.blob());
+
+        const photoPath =
+          `${CHURCH_ID}/${createdVisitor.id}.jpg`;
+
+        const { error: uploadError } = await supabaseClient.storage
+          .from("visitor-photos")
+          .upload(photoPath, photoBlob, {
+            contentType: "image/jpeg",
+            upsert: false
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { error: photoUpdateError } = await supabaseClient.rpc(
+          "attach_visitor_photo",
+          {
+            target_visitor_id: createdVisitor.id,
+            target_church_id: CHURCH_ID
+          }
+        );
+
+        if (photoUpdateError) throw photoUpdateError;
+
+      } catch (photoError) {
+        console.error("Visitor photo upload error:", photoError);
+      }
+    }
+
     showThankYou();
+
   } catch (error) {
     console.error("Visitor registration error:", error);
     alert("We couldn't submit your registration. Please try again.");
@@ -1407,22 +1616,52 @@ async function renderAdmin(){
     }
 
     const visitors = data || [];
+
+    // Create short-lived private photo URLs for Greeter recognition.
+    for (const visitor of visitors) {
+      visitor.signed_photo_url = null;
+
+      if (visitor.photo_url) {
+        const { data: signedPhoto, error: photoError } =
+          await supabaseClient.storage
+            .from("visitor-photos")
+            .createSignedUrl(visitor.photo_url, 300);
+
+        if (!photoError && signedPhoto?.signedUrl) {
+          visitor.signed_photo_url = signedPhoto.signedUrl;
+        } else if (photoError) {
+          console.error("Greeter photo display error:", photoError);
+        }
+      }
+    }
+
     window.currentVisitors = visitors;
     window.allVisitors = visitors;
 
     rows.innerHTML = visitors.length ? visitors.map(x => `
       <tr>
-        <td><strong>${esc(x.first_name)} ${esc(x.last_name)}</strong></td>
-        <td>
+        <td style="vertical-align:top">
+          <div style="display:flex;align-items:flex-start;gap:12px">
+            ${x.signed_photo_url ? `
+              <img
+                src="${esc(x.signed_photo_url)}"
+                alt="Photo of ${esc(x.first_name || "visitor")} ${esc(x.last_name || "")}"
+                style="width:56px;height:70px;object-fit:cover;object-position:center top;border-radius:10px;flex-shrink:0"
+              />
+            ` : ""}
+            <strong style="padding-top:4px">${esc(x.first_name)} ${esc(x.last_name)}</strong>
+          </div>
+        </td>
+        <td style="vertical-align:top;padding-top:16px">
           <span class="pill ${x.visit_type === "First Time" ? "first" : "returning"}">
             ${esc(x.visit_type || "—")}
           </span>
         </td>
-        <td>${new Date(x.created_at).toLocaleTimeString([], {
+        <td style="vertical-align:top;padding-top:16px">${new Date(x.created_at).toLocaleTimeString([], {
           hour: "numeric",
           minute: "2-digit"
         })}</td>
-        <td>${esc(x.invited_by || "—")}</td>
+        <td style="vertical-align:top;padding-top:16px">${esc(x.invited_by || "—")}</td>
       </tr>`).join("") :
       `<tr><td colspan="4" class="subtle">No visitor registrations yet today.</td></tr>`;
 
