@@ -132,6 +132,32 @@
     .welcome-preview .names{font-size:23px}
     table{display:block;overflow:auto;white-space:nowrap}
   }
+
+    /* Accessibility: visible keyboard focus for visit choices */
+    .choice:has(input[type="radio"]:focus-visible) {
+      outline: 3px solid #1f6feb;
+      outline-offset: 3px;
+      border-radius: 8px;
+    }
+
+    .choice input[type="radio"]:focus-visible {
+      outline: 2px solid #1f6feb;
+      outline-offset: 2px;
+    }
+
+
+    /* Accessibility: visible keyboard focus for permission choices */
+    .choice:has(input[type="checkbox"]:focus-visible) {
+      outline: 3px solid #1f6feb;
+      outline-offset: 3px;
+      border-radius: 8px;
+    }
+
+    .choice input[type="checkbox"]:focus-visible {
+      outline: 2px solid #1f6feb;
+      outline-offset: 2px;
+    }
+
 </style>
 </head>
 <body>
@@ -182,7 +208,26 @@
       <div class="divider"></div>
       <h3 class="section-title">Contact Information</h3>
       <div class="grid grid-2">
-        <div><label>Phone Number</label><input id="phone" type="tel" /></div>
+        <div>
+  <label for="phone">Phone Number</label>
+  <input
+    id="phone"
+    type="tel"
+    inputmode="numeric"
+    autocomplete="tel"
+    placeholder="XXX-XXX-XXXX"
+    maxlength="12"
+    aria-describedby="phoneError"
+  />
+  <div
+    id="phoneError"
+    class="hidden"
+    role="alert"
+    style="color:var(--danger);font-size:13px;margin-top:6px"
+  >
+    Please enter a 10-digit phone number.
+  </div>
+</div>
         <div><label>Email Address</label><input id="email" type="email" /></div>
       </div>
       
@@ -851,7 +896,13 @@ function showAdminTab(tab){
 
   if(tab==="followup") renderFollowUpQueue();
   if(tab==="history") renderVisitorHistory();
-  if(tab==="welcome") renderWelcome();
+  if(tab==="welcome") {
+    if (CURRENT_STAFF_ROLE === "admin") {
+      renderWelcome(window.currentVisitors || []);
+    } else {
+      renderWelcome();
+    }
+  }
 }
 function formatBirthday(visitor){
   if (!visitor.birth_month && !visitor.birth_day && !visitor.birth_year) return "—";
@@ -1453,6 +1504,33 @@ document.getElementById("adminLoginForm").addEventListener("submit", async e => 
   } finally {
     button.disabled = false;
     button.textContent = "Sign In";
+  }
+});
+
+const phoneInput = document.getElementById("phone");
+const phoneError = document.getElementById("phoneError");
+
+function formatPhoneNumber(value=""){
+  const digits = String(value).replace(/\D/g, "").slice(0, 10);
+
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) {
+    return `${digits.slice(0,3)}-${digits.slice(3)}`;
+  }
+
+  return `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`;
+}
+
+phoneInput.addEventListener("input", () => {
+  const rawDigits = phoneInput.value.replace(/\D/g, "");
+
+  phoneInput.value = formatPhoneNumber(phoneInput.value);
+
+  if (rawDigits.length > 10) {
+    phoneError.textContent = "Phone numbers cannot contain more than 10 digits.";
+    phoneError.classList.remove("hidden");
+  } else {
+    phoneError.classList.add("hidden");
   }
 });
 
