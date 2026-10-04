@@ -591,8 +591,8 @@
         <div class="divider"></div>
         <h3 class="section-title">Current Staff</h3>
         <table>
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
-          <tbody id="staffRows"><tr><td colspan="4" class="subtle">Loading staff...</td></tr></tbody>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="staffRows"><tr><td colspan="5" class="subtle">Loading staff...</td></tr></tbody>
         </table>
 
 
@@ -859,6 +859,7 @@ function toggleInviter(){
   }
 }
 function showRegistration(reset=false){
+  document.getElementById("resetPasswordView").classList.add("hidden");
   document.getElementById("registrationView").classList.remove("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
   document.getElementById("adminView").classList.add("hidden");
@@ -878,6 +879,7 @@ function showRegistration(reset=false){
   }
 }
 function showAdminLogin(){
+  document.getElementById("resetPasswordView").classList.add("hidden");
   const password = document.getElementById("adminPassword");
   const showPassword = document.getElementById("showAdminPassword");
 
@@ -1035,6 +1037,7 @@ window.addEventListener("popstate", protectAdminView);
 let CURRENT_STAFF_ROLE = null;
 
 function showAdmin(role="admin"){
+  document.getElementById("resetPasswordView").classList.add("hidden");
   const dashboardTitles = {
     admin: {
       title: "Visitor Dashboard",
@@ -1130,6 +1133,7 @@ function showAdmin(role="admin"){
   renderAdmin();
 }
 function showThankYou(){
+  document.getElementById("resetPasswordView").classList.add("hidden");
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("adminView").classList.add("hidden");
   document.getElementById("adminLoginView").classList.add("hidden");
@@ -1189,6 +1193,7 @@ function showAdminTab(tab){
 }
 function showStaffManagementView(){
   if (CURRENT_STAFF_ROLE !== "admin") return;
+  document.getElementById("resetPasswordView").classList.add("hidden");
 
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
@@ -1222,7 +1227,10 @@ async function renderStaffManagement(){
   if (CURRENT_STAFF_ROLE !== "admin") return;
 
   const rows = document.getElementById("staffRows");
-  rows.innerHTML = `<tr><td colspan="4" class="subtle">Loading staff...</td></tr>`;
+  rows.innerHTML = `<tr><td colspan="5" class="subtle">Loading staff...</td></tr>`;
+
+  const { data: authData } = await supabaseClient.auth.getUser();
+  const currentUserId = authData?.user?.id || "";
 
   const { data, error } = await supabaseClient
     .from("church_users")
@@ -1232,19 +1240,68 @@ async function renderStaffManagement(){
 
   if (error) {
     console.error("Staff list error:", error);
-    rows.innerHTML = `<tr><td colspan="4" class="subtle">Unable to load staff.</td></tr>`;
+    rows.innerHTML = `<tr><td colspan="5" class="subtle">Unable to load staff.</td></tr>`;
     return;
   }
 
   rows.innerHTML = data?.length ? data.map(member => {
     const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "Staff Member";
+    const status = member.invitation_status || "active";
+    const isSelf = member.user_id === currentUserId;
+    const actionLabel = status === "invited" ? "Cancel Invitation" : "Remove Staff";
+    const action = isSelf
+      ? `<span class="subtle">Current account</span>`
+      : `<button type="button" class="btn-danger" onclick="removeChurchStaff('${esc(member.user_id || "")}','${esc(name)}','${esc(status)}')">${actionLabel}</button>`;
+
     return `<tr>
       <td><strong>${esc(name)}</strong></td>
       <td>${esc(member.invited_email || "—")}</td>
       <td>${esc(staffRoleLabel(member.role))}</td>
-      <td>${esc((member.invitation_status || "active").replace(/^./, c => c.toUpperCase()))}</td>
+      <td>${esc(status.replace(/^./, c => c.toUpperCase()))}</td>
+      <td>${action}</td>
     </tr>`;
-  }).join("") : `<tr><td colspan="4" class="subtle">No staff members yet.</td></tr>`;
+  }).join("") : `<tr><td colspan="5" class="subtle">No staff members yet.</td></tr>`;
+}
+
+async function removeChurchStaff(userId, name, status){
+  if (CURRENT_STAFF_ROLE !== "admin" || !userId) return;
+
+  const { data: authData } = await supabaseClient.auth.getUser();
+  const currentUserId = authData?.user?.id || "";
+
+  if (userId === currentUserId) {
+    alert("You cannot remove your own church administrator access.");
+    return;
+  }
+
+  const isInvitation = status === "invited";
+  const promptText = isInvitation
+    ? `Cancel the invitation for ${name}?`
+    : `Remove ${name} from this church? They will no longer have access to this church in Visitor Connect.`;
+
+  if (!window.confirm(promptText)) return;
+
+  const { data: removed, error } = await supabaseClient.rpc(
+    "remove_church_staff",
+    {
+      target_church_id: CHURCH_ID,
+      target_user_id: userId
+    }
+  );
+
+  if (error) {
+    console.error("Remove staff error:", error);
+    alert(isInvitation ? "Unable to cancel this invitation." : "Unable to remove this staff member.");
+    return;
+  }
+
+  if (removed !== true) {
+    alert(isInvitation ? "Invitation was not found." : "Staff membership was not found.");
+    await renderStaffManagement();
+    return;
+  }
+
+  await renderStaffManagement();
 }
 
 async function inviteChurchStaff(event){
@@ -1786,6 +1843,7 @@ async function loadChurchConfiguration() {
 // Capture the auth callback before Supabase processes/cleans the URL.
 const INITIAL_AUTH_HASH = window.location.hash;
 const INITIAL_AUTH_QUERY = window.location.search;
+let PASSWORD_SETUP_COMPLETE = false;
 
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
@@ -1935,6 +1993,11 @@ document.getElementById("resetPasswordForm").addEventListener("submit", async e 
 
     if (error) throw error;
 
+    // The invitation/recovery flow is complete. Prevent the original invite
+    // hash from reopening this screen after the user signs in normally.
+    PASSWORD_SETUP_COMPLETE = true;
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+
     await supabaseClient.auth.signOut();
 
     e.target.reset();
@@ -1946,7 +2009,6 @@ document.getElementById("resetPasswordForm").addEventListener("submit", async e 
     loginMessage.textContent = "Password updated. Sign in with your new password.";
     loginMessage.classList.remove("hidden");
 
-    history.replaceState(null, "", window.location.pathname + window.location.search);
 
   } catch (error) {
     console.error("Password update error:", error);
@@ -1959,6 +2021,7 @@ document.getElementById("resetPasswordForm").addEventListener("submit", async e 
 });
 
 function isStaffInvitationLink(){
+  if (PASSWORD_SETUP_COMPLETE) return false;
   const currentHash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
   const initialHash = new URLSearchParams(INITIAL_AUTH_HASH.replace(/^#/, ""));
   const currentQuery = new URLSearchParams(window.location.search);
@@ -2187,6 +2250,27 @@ document.getElementById("visitorForm").addEventListener("submit", async e=>{
 
       } catch (photoError) {
         console.error("Visitor photo upload error:", photoError);
+      }
+    }
+
+    // If the visitor requested follow-up, alert active Outreach staff.
+    // Notification failure must never turn a successful registration into an error.
+    if (visitor.contactPermission && createdVisitor?.id) {
+      try {
+        const { data: notificationResult, error: notificationError } =
+          await supabaseClient.functions.invoke("notify-outreach", {
+            body: {
+              visitorId: createdVisitor.id,
+              churchId: CHURCH_ID
+            }
+          });
+
+        if (notificationError) throw notificationError;
+        if (notificationResult?.success === false) {
+          throw new Error(notificationResult.error || "Outreach notification failed.");
+        }
+      } catch (notificationError) {
+        console.error("Outreach notification error:", notificationError);
       }
     }
 
