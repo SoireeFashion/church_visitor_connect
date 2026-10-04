@@ -184,6 +184,25 @@
   @media(max-width:760px){.landing-shell{padding:24px 18px 48px}.landing-nav{margin-bottom:36px}.landing-flow{grid-template-columns:1fr 1fr}.landing-hero{padding:24px 0 44px}.landing-hero p{font-size:17px}}
   @media(max-width:520px){.landing-nav{align-items:flex-start}.landing-actions{justify-content:flex-end}.landing-flow{grid-template-columns:1fr}.landing-hero h1{font-size:44px}}
 
+  /* Get Visitor Connect signup */
+  .signup-shell{max-width:760px;margin:0 auto;padding:34px 0 60px}
+  .signup-price{display:flex;align-items:baseline;gap:7px;margin:4px 0 8px}
+  .signup-price strong{font-size:34px;letter-spacing:-.03em}
+  .signup-price span{color:var(--muted)}
+  .signup-note{background:#faf8f4;border:1px solid var(--line);border-radius:14px;padding:14px 16px;color:var(--muted);font-size:14px;line-height:1.55;margin-top:18px}
+  .signup-benefits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+  .signup-benefit{background:#faf8f4;border:1px solid var(--line);border-radius:14px;padding:15px 16px;line-height:1.45}
+  .signup-benefit strong{display:block;margin-bottom:4px}
+  .signup-benefit span{color:var(--muted);font-size:14px}
+  .signup-pricing{background:#faf8f4;border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}
+  .signup-price-row{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+  .signup-price-row:last-of-type{border-bottom:0}
+  .signup-price-row strong{font-size:18px}
+  .signup-price-row .amount{font-size:20px;font-weight:800;white-space:nowrap}
+  .signup-total{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-top:14px;padding-top:14px;border-top:2px solid var(--ink);font-weight:800}
+  .signup-total .amount{font-size:24px}
+  @media(max-width:620px){.signup-benefits{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -216,7 +235,7 @@
         <h1>Turn church visitors into lasting connections.</h1>
         <p>Visitor Connect gives your team one simple place to welcome visitors, organize follow-up, track response, and make sure no one gets lost after Sunday.</p>
         <div class="landing-cta">
-          <a class="landing-primary" href="mailto:editor@soireefashionmagazine.com?subject=Visitor%20Connect%20for%20Our%20Church">Get Visitor Connect for Your Church</a>
+          <button class="landing-primary" type="button" id="getVisitorConnectBtn">Get Visitor Connect for Your Church</button>
           <button class="landing-secondary" type="button" id="globalStaffLoginBtn">Church Staff Login</button>
         </div>
       </div>
@@ -235,6 +254,75 @@
       <div class="landing-footer">Visitor Connect · LH Creative Labs</div>
     </div>
   </section>
+
+  <section id="getVisitorConnectView" class="hidden">
+    <div class="signup-shell">
+      <div class="hero">
+        <h2>Get Visitor Connect</h2>
+        <p>Start connecting with your visitors beyond Sunday.</p>
+      </div>
+
+      <form id="getVisitorConnectForm" class="card">
+        <h3 class="section-title">Church Information</h3>
+        <div class="grid grid-2">
+          <div><label for="signupChurchName">Church Name*</label><input id="signupChurchName" required autocomplete="organization" /></div>
+          <div><label for="signupChurchWebsite">Church Website <span class="optional">(optional)</span></label><input id="signupChurchWebsite" type="url" placeholder="https://example.org" autocomplete="url" /></div>
+        </div>
+
+        <div class="divider"></div>
+        <h3 class="section-title">Church Administrator</h3>
+        <div class="grid grid-2">
+          <div><label for="signupAdminFirstName">First Name*</label><input id="signupAdminFirstName" required autocomplete="given-name" /></div>
+          <div><label for="signupAdminLastName">Last Name*</label><input id="signupAdminLastName" required autocomplete="family-name" /></div>
+        </div>
+        <div class="grid grid-2" style="margin-top:14px">
+          <div><label for="signupAdminEmail">Email Address*</label><input id="signupAdminEmail" type="email" required autocomplete="email" /></div>
+          <div><label for="signupAdminPhone">Phone Number*</label><input id="signupAdminPhone" type="tel" required autocomplete="tel" placeholder="XXX-XXX-XXXX" /></div>
+        </div>
+
+        <div class="divider"></div>
+        <h3 class="section-title">What Your Church Receives</h3>
+        <div class="signup-benefits">
+          <div class="signup-benefit"><strong>Personalized Registration & QR Code</strong><span>Your church receives its own visitor registration page and personalized QR code for screens, welcome cards, signage, bulletins, and your website.</span></div>
+          <div class="signup-benefit"><strong>Works on Phones, Tablets & Computers</strong><span>Use Visitor Connect in a modern web browser on iPhone, iPad, Android phones and tablets, Mac, PC, and Chromebook. No app download required.</span></div>
+          <div class="signup-benefit"><strong>Church Website Connection</strong><span>After registration, visitors can be directed back to your church website so the connection can continue.</span></div>
+          <div class="signup-benefit"><strong>Automatic Outreach Alerts</strong><span>When a visitor requests follow-up, your active Outreach team can be notified automatically.</span></div>
+          <div class="signup-benefit"><strong>Follow-Up & Returning Visitor Tracking</strong><span>Track contact status, response time, visitor history, returning visits, and who followed up.</span></div>
+          <div class="signup-benefit"><strong>Role-Based Staff Access</strong><span>Staff roles for Admin/Pastor, Outreach, Greeters &amp; Ushers, and Media Personnel, with access limited by role.</span></div>
+          <div class="signup-benefit"><strong>Leadership Visibility</strong><span>Daily visitor summaries help pastors and administrators see visitor activity and follow-up progress.</span></div>
+          <div class="signup-benefit"><strong>Welcome Screen</strong><span>Media Personnel can display approved visitor names without exposing private visitor information.</span></div>
+        </div>
+
+        <div class="divider"></div>
+        <h3 class="section-title">Pricing</h3>
+        <div class="signup-pricing">
+          <div class="signup-price-row">
+            <div><strong>One-Time Setup & Activation</strong><div class="subtle">Church configuration, personalized QR code, first administrator setup, and launch preparation.</div></div>
+            <div class="amount">$99</div>
+          </div>
+          <div class="signup-price-row">
+            <div><strong>Visitor Connect Subscription</strong><div class="subtle">Ongoing access to Visitor Connect for your church.</div></div>
+            <div class="amount">$59 / month</div>
+          </div>
+          <div class="signup-total"><span>Due Today</span><span class="amount">$158</span></div>
+          <div class="subtle" style="margin-top:8px">Then $59/month beginning with your next monthly billing cycle. <strong>No long-term contract. Cancel anytime before your next billing date.</strong></div>
+        </div>
+
+        <div class="signup-note">
+          <strong style="color:var(--ink)">Subscription &amp; Cancellation</strong><br>
+          Visitor Connect is $59/month after the one-time $99 setup and activation fee. Your subscription renews automatically each month until canceled. You may cancel at any time before your next billing date to prevent the next monthly charge. The $99 setup and activation fee is non-refundable once account setup has begun. Monthly subscription payments are non-refundable once a billing period has started.
+        </div>
+
+        <div id="signupCheckoutMessage" class="hidden" role="status" style="margin-top:18px"></div>
+        <div class="submit-wrap">
+          <button class="btn-primary" type="submit">Continue to Secure Checkout</button>
+        </div>
+        <div class="signup-note"><strong style="color:var(--ink)">What happens next?</strong><br>After checkout, we'll review and activate your church's Visitor Connect account. Your designated administrator will receive a secure invitation to create their password.</div>
+        <button class="btn-ghost" type="button" onclick="showPublicLanding()" style="width:100%;margin-top:14px">Back to Visitor Connect</button>
+      </form>
+    </div>
+  </section>
+
   <section id="registrationView">
     <div class="hero">
       <h2>Welcome to<br>Cathedral of Praise COGIC!<br>We’re glad you’re here.</h2>
@@ -936,6 +1024,19 @@ function showRegistration(reset=false){
     photoData="";
   }
 }
+function showGetVisitorConnect(){
+  document.querySelector(".app > header").classList.add("hidden");
+  document.getElementById("landingView").classList.add("hidden");
+  document.getElementById("getVisitorConnectView").classList.remove("hidden");
+  document.getElementById("registrationView").classList.add("hidden");
+  document.getElementById("thankYouView").classList.add("hidden");
+  document.getElementById("adminLoginView").classList.add("hidden");
+  document.getElementById("adminView").classList.add("hidden");
+  document.getElementById("platformAdminView").classList.add("hidden");
+  document.getElementById("staffManagementView").classList.add("hidden");
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
 function showGlobalStaffLogin(){
   document.querySelector(".app > header").classList.remove("hidden");
   document.getElementById("landingView").classList.add("hidden");
@@ -955,6 +1056,7 @@ function showGlobalStaffLogin(){
 function showPublicLanding(){
   document.querySelector(".app > header").classList.add("hidden");
   document.getElementById("landingView").classList.remove("hidden");
+  document.getElementById("getVisitorConnectView").classList.add("hidden");
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
   document.getElementById("adminLoginView").classList.add("hidden");
@@ -1987,6 +2089,7 @@ async function initializeVisitorConnect() {
     if (church.landingMode) {
       document.querySelector(".app > header").classList.add("hidden");
       document.getElementById("landingView").classList.remove("hidden");
+      document.getElementById("getVisitorConnectView").classList.add("hidden");
       document.getElementById("registrationView").classList.add("hidden");
       document.getElementById("thankYouView").classList.add("hidden");
       document.getElementById("adminLoginView").classList.add("hidden");
@@ -2050,6 +2153,16 @@ if (church.platformMode) {
 }
 
 initializeVisitorConnect();
+
+document.getElementById("getVisitorConnectBtn").addEventListener("click", showGetVisitorConnect);
+
+document.getElementById("getVisitorConnectForm").addEventListener("submit", event => {
+  event.preventDefault();
+  const message = document.getElementById("signupCheckoutMessage");
+  message.textContent = "Your church information is ready. Secure checkout will be connected in the next step.";
+  message.style.color = "var(--success)";
+  message.classList.remove("hidden");
+});
 
 document.getElementById("globalStaffLoginBtn").addEventListener("click", showGlobalStaffLogin);
 
