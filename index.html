@@ -2156,12 +2156,47 @@ initializeVisitorConnect();
 
 document.getElementById("getVisitorConnectBtn").addEventListener("click", showGetVisitorConnect);
 
-document.getElementById("getVisitorConnectForm").addEventListener("submit", event => {
+document.getElementById("getVisitorConnectForm").addEventListener("submit", async event => {
   event.preventDefault();
+
+  const form = event.currentTarget;
+  const button = form.querySelector('button[type="submit"]');
   const message = document.getElementById("signupCheckoutMessage");
-  message.textContent = "Your church information is ready. Secure checkout will be connected in the next step.";
-  message.style.color = "var(--success)";
-  message.classList.remove("hidden");
+
+  message.classList.add("hidden");
+  message.style.color = "var(--danger)";
+
+  const payload = {
+    churchName: document.getElementById("signupChurchName").value.trim(),
+    churchWebsite: document.getElementById("signupChurchWebsite").value.trim(),
+    adminFirstName: document.getElementById("signupAdminFirstName").value.trim(),
+    adminLastName: document.getElementById("signupAdminLastName").value.trim(),
+    adminEmail: document.getElementById("signupAdminEmail").value.trim(),
+    adminPhone: document.getElementById("signupAdminPhone").value.trim()
+  };
+
+  button.disabled = true;
+  button.textContent = "Opening Secure Checkout...";
+
+  try {
+    const { data, error } = await supabaseClient.functions.invoke("create-checkout", {
+      body: payload
+    });
+
+    if (error) throw error;
+    if (!data?.success || !data?.checkoutUrl) {
+      throw new Error(data?.error || "Unable to start checkout.");
+    }
+
+    window.location.assign(data.checkoutUrl);
+
+  } catch (error) {
+    console.error("Visitor Connect checkout error:", error);
+    message.textContent = "We couldn't start secure checkout. Please try again.";
+    message.classList.remove("hidden");
+    button.disabled = false;
+    button.textContent = "Continue to Secure Checkout";
+  }
 });
 
 document.getElementById("globalStaffLoginBtn").addEventListener("click", showGlobalStaffLogin);
