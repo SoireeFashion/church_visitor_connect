@@ -164,15 +164,15 @@
 <div class="app">
 <header>
   <div class="brand">
-    <div class="logo">C</div>
+    <div class="logo" id="brandLogo">C</div>
     <div>
-      <h1>COP COGIC</h1>
-      <p>Welcome to Visitor Connect</p>
+      <h1 id="brandTitle">COP COGIC</h1>
+      <p id="brandSubtitle">Welcome to Visitor Connect</p>
     </div>
   </div>
-  <div class="top-actions">
+  <div class="top-actions" id="topActions">
     <button class="btn-secondary" onclick="showRegistration()">Registration</button>
-    <button class="btn-ghost" onclick="showAdminLogin()">Admin</button>
+    <button class="btn-ghost" onclick="showAdminLogin()">Staff Login</button>
   </div>
 </header>
 
@@ -320,8 +320,8 @@
 
   <section id="adminLoginView" class="hidden">
     <div class="hero">
-      <h2>Church Staff Login</h2>
-      <p>Sign in to access Visitor Connect.</p>
+      <h2 id="adminLoginTitle">Church Staff Login</h2>
+        <p id="adminLoginSubtitle">Sign in to access Visitor Connect.</p>
     </div>
 
     <div class="card" style="max-width:520px;margin:0 auto">
@@ -360,7 +360,7 @@
           Forgot Password?
         </button>
 
-        <button class="btn-secondary" type="button"
+        <button id="backToRegistrationButton" class="btn-secondary" type="button"
           onclick="showRegistration()"
           style="width:100%;margin-top:10px">
           Back to Registration
@@ -422,6 +422,184 @@
     </div>
   </section>
 
+  <section id="platformAdminView" class="hidden">
+  <div class="hero">
+    <h2>Platform Administration</h2>
+    <p>Create and manage Visitor Connect churches.</p>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px">
+      <div>
+        <h3 style="margin:0">Churches</h3>
+        <div class="subtle" style="margin-top:4px">
+          Set up a new church and its first administrator.
+        </div>
+      </div>
+
+      <button class="btn-ghost" type="button" onclick="adminLogout()">
+        Log Out
+      </button>
+    </div>
+
+    <form id="platformChurchForm">
+      <h3 class="section-title">Church Information</h3>
+
+      <div class="grid grid-2">
+        <div>
+          <label for="platformChurchName">Church Name*</label>
+          <input
+            id="platformChurchName"
+            required
+            autocomplete="organization"
+          />
+        </div>
+
+        <div>
+          <label for="platformChurchWebsite">Website</label>
+          <input
+            id="platformChurchWebsite"
+            type="url"
+            placeholder="https://example.org"
+            autocomplete="url"
+          />
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <label for="platformChurchSlug">Registration URL*</label>
+        <input
+          id="platformChurchSlug"
+          required
+          autocomplete="off"
+        />
+
+        <div class="subtle" style="margin-top:6px">
+          Visitor Connect will generate this from the church name.
+          You can edit it before creating the church.
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <h3 class="section-title">First Administrator</h3>
+
+      <div class="grid grid-2">
+        <div>
+          <label for="platformAdminFirstName">First Name*</label>
+          <input
+            id="platformAdminFirstName"
+            required
+            autocomplete="given-name"
+          />
+        </div>
+
+        <div>
+          <label for="platformAdminLastName">Last Name*</label>
+          <input
+            id="platformAdminLastName"
+            required
+            autocomplete="family-name"
+          />
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <label for="platformAdminInviteEmail">Email Address*</label>
+        <input
+          id="platformAdminInviteEmail"
+          type="email"
+          required
+          autocomplete="email"
+        />
+      </div>
+
+      <div
+        id="platformChurchMessage"
+        class="hidden"
+        role="status"
+        style="margin-top:18px"
+      ></div>
+
+      <div class="submit-wrap">
+        <button
+          id="platformCreateChurchButton"
+          class="btn-primary"
+          type="submit"
+        >
+          Create Church
+        </button>
+      </div>
+    </form>
+  </div>
+</section>
+
+  <section id="staffManagementView" class="hidden">
+    <div class="hero">
+      <h2>Church Administration</h2>
+      <p>Manage Visitor Connect staff for this church.</p>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+        <div>
+          <h3 style="margin:0">Staff Management</h3>
+          <div class="subtle" style="margin-top:4px">Invite church staff and assign their Visitor Connect role.</div>
+        </div>
+        <button class="btn-secondary" type="button" onclick="backToVisitorDashboard()">← Back to Visitor Dashboard</button>
+      </div>
+
+        <div style="margin-bottom:20px">
+        </div>
+
+        <form id="staffInviteForm">
+          <div class="grid grid-2">
+            <div>
+              <label for="staffFirstName">First Name*</label>
+              <input id="staffFirstName" required autocomplete="given-name" />
+            </div>
+            <div>
+              <label for="staffLastName">Last Name*</label>
+              <input id="staffLastName" required autocomplete="family-name" />
+            </div>
+          </div>
+
+          <div class="grid grid-2" style="margin-top:14px">
+            <div>
+              <label for="staffEmail">Email Address*</label>
+              <input id="staffEmail" type="email" required autocomplete="email" />
+            </div>
+            <div>
+              <label for="staffRole">Role*</label>
+              <select id="staffRole" required>
+                <option value="">Select a role</option>
+                <option value="admin">Admin / Pastor</option>
+                <option value="greeter">Greeter / Usher</option>
+                <option value="outreach">Outreach</option>
+                <option value="media">Media</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="staffInviteMessage" class="hidden" role="status" style="margin-top:16px"></div>
+
+          <div class="submit-wrap">
+            <button id="staffInviteButton" class="btn-primary" type="submit">Send Staff Invitation</button>
+          </div>
+        </form>
+
+        <div class="divider"></div>
+        <h3 class="section-title">Current Staff</h3>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+          <tbody id="staffRows"><tr><td colspan="4" class="subtle">Loading staff...</td></tr></tbody>
+        </table>
+
+
+
+    </div>
+  </section>
+
   <section id="adminView" class="hidden">
     <div class="hero">
       <h2 id="dashboardTitle">Visitor Dashboard</h2>
@@ -441,6 +619,7 @@
         <button class="tab btn-secondary" id="tabFollowup" onclick="showAdminTab('followup')">Follow-Up Queue</button>
         <button class="tab btn-secondary" id="tabHistory" onclick="showAdminTab('history')">Visitor History</button>
         <button class="tab btn-secondary" id="tabWelcome" onclick="showAdminTab('welcome')">Welcome Screen Preview</button>
+        <button class="btn-ghost hidden" id="manageStaffButton" type="button" onclick="showStaffManagementView()">Manage Staff</button>
         <button class="btn-ghost" type="button" onclick="adminLogout()" style="margin-left:auto">Log Out</button>
       </div>
 
@@ -589,21 +768,12 @@
         <div style="margin-top:24px">
           <h3 class="section-title">Follow-Up</h3>
 
-          <div class="grid grid-2">
-            <div>
-              <label for="followUpStatus">Status</label>
-              <select id="followUpStatus">
-                <option value="Not Contacted">Not Contacted</option>
-                <option value="Contacted">Contacted</option>
-              </select>
-            </div>
-
-            <div>
-              <label>Last Contacted</label>
-              <div id="followedUpAt"
-                   class="detail-item"
-                   style="margin-top:6px">—</div>
-            </div>
+          <div style="margin-top:16px">
+            <label for="followUpStatus">Status</label>
+            <select id="followUpStatus">
+              <option value="Not Contacted">Not Contacted</option>
+              <option value="Contacted">Contacted</option>
+            </select>
           </div>
 
           <div class="detail-grid" style="margin-top:16px">
@@ -611,15 +781,25 @@
               <div class="detail-label">First Contacted</div>
               <div id="firstContactedAt" class="detail-value">—</div>
             </div>
-
+            <div class="detail-item">
+              <div class="detail-label">First Contacted By</div>
+              <div id="firstContactedBy" class="detail-value">—</div>
+            </div>
             <div class="detail-item">
               <div class="detail-label">Response Time</div>
               <div id="responseTime" class="detail-value">—</div>
             </div>
-
             <div class="detail-item">
               <div class="detail-label">48-Hour Follow-Up Goal</div>
               <div id="slaStatus" class="detail-value">—</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Last Contacted</div>
+              <div id="followedUpAt" class="detail-value">—</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Last Contacted By</div>
+              <div id="lastContactedBy" class="detail-value">—</div>
             </div>
           </div>
 
@@ -682,6 +862,8 @@ function showRegistration(reset=false){
   document.getElementById("registrationView").classList.remove("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
   document.getElementById("adminView").classList.add("hidden");
+  document.getElementById("platformAdminView").classList.add("hidden");
+  document.getElementById("staffManagementView").classList.add("hidden");
   document.getElementById("adminLoginView").classList.add("hidden");
   if(reset){
     document.getElementById("visitorForm").reset();
@@ -706,9 +888,98 @@ function showAdminLogin(){
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
   document.getElementById("adminView").classList.add("hidden");
+  document.getElementById("platformAdminView").classList.add("hidden");
+  document.getElementById("staffManagementView").classList.add("hidden");
   document.getElementById("adminLoginView").classList.remove("hidden");
   document.getElementById("adminLoginError").classList.add("hidden");
   document.getElementById("adminEmail").focus();
+}
+
+
+async function createPlatformChurch(event){
+  event.preventDefault();
+
+  const button = document.getElementById("platformCreateChurchButton");
+  const message = document.getElementById("platformChurchMessage");
+
+  const payload = {
+    churchName: document.getElementById("platformChurchName").value.trim(),
+    websiteUrl: document.getElementById("platformChurchWebsite").value.trim(),
+    slug: document.getElementById("platformChurchSlug").value.trim(),
+    adminFirstName: document.getElementById("platformAdminFirstName").value.trim(),
+    adminLastName: document.getElementById("platformAdminLastName").value.trim(),
+    adminEmail: document.getElementById("platformAdminInviteEmail").value.trim()
+  };
+
+  message.classList.add("hidden");
+  button.disabled = true;
+  button.textContent = "Creating Church...";
+
+  try {
+    const { data, error } = await supabaseClient.functions.invoke(
+      "create-church",
+      { body: payload }
+    );
+
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.error || "Unable to create church.");
+
+    message.textContent =
+      `${data.church.name} was created. An administrator invitation was sent to ${data.administrator.email}.`;
+    message.classList.remove("hidden");
+
+    document.getElementById("platformChurchForm").reset();
+
+  } catch (error) {
+    console.error("Create church error:", error);
+
+    let errorMessage = error?.message || "Unable to create church.";
+
+    if (error?.context && typeof error.context.json === "function") {
+      try {
+        const details = await error.context.json();
+        console.error("Create church response:", details);
+
+        if (details?.error) {
+          errorMessage = details.stage
+            ? `${details.error} [Stage: ${details.stage}]`
+            : details.error;
+        }
+      } catch (responseError) {
+        console.error("Could not read function error response:", responseError);
+      }
+    }
+
+    message.textContent = errorMessage;
+    message.classList.remove("hidden");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Create Church";
+  }
+}
+
+document
+  .getElementById("platformChurchForm")
+  .addEventListener("submit", createPlatformChurch);
+
+async function isPlatformAdmin(user){
+  const { data, error } = await supabaseClient
+    .rpc("is_platform_admin");
+
+  if (error) {
+    console.error("Platform admin access error:", error);
+    return false;
+  }
+
+  return data === true;
+}
+
+function showPlatformAdmin(){
+  document.getElementById("registrationView").classList.add("hidden");
+  document.getElementById("thankYouView").classList.add("hidden");
+  document.getElementById("adminLoginView").classList.add("hidden");
+  document.getElementById("adminView").classList.add("hidden");
+  document.getElementById("platformAdminView").classList.remove("hidden");
 }
 
 async function verifyAdminAccess(user){
@@ -735,8 +1006,14 @@ async function adminLogout(){
   form.reset();
   password.type = "password";
   showPassword.checked = false;
+  document.getElementById("staffManagementView").classList.add("hidden");
 
-  showRegistration();
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("platform") === "admin") {
+    showAdminLogin();
+  } else {
+    showRegistration();
+  }
 }
 
 async function protectAdminView(){
@@ -789,12 +1066,14 @@ function showAdmin(role="admin"){
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
   document.getElementById("adminLoginView").classList.add("hidden");
+  document.getElementById("staffManagementView").classList.add("hidden");
   document.getElementById("adminView").classList.remove("hidden");
 
   const tabList = document.getElementById("tabList");
   const tabFollowup = document.getElementById("tabFollowup");
   const tabHistory = document.getElementById("tabHistory");
   const tabWelcome = document.getElementById("tabWelcome");
+  const manageStaffButton = document.getElementById("manageStaffButton");
   const stats = document.getElementById("dashboardStats");
   const visitorTableHead = document.getElementById("visitorTableHead");
 
@@ -812,6 +1091,7 @@ function showAdmin(role="admin"){
     tabFollowup.classList.add("hidden");
     tabHistory.classList.add("hidden");
     tabWelcome.classList.remove("hidden");
+    manageStaffButton.classList.add("hidden");
     showAdminTab("welcome");
   }
   else if(role === "outreach"){
@@ -820,6 +1100,7 @@ function showAdmin(role="admin"){
     tabFollowup.classList.remove("hidden");
     tabHistory.classList.remove("hidden");
     tabWelcome.classList.add("hidden");
+    manageStaffButton.classList.add("hidden");
     showAdminTab("list");
   }
   else if(role === "greeter"){
@@ -828,6 +1109,7 @@ function showAdmin(role="admin"){
     tabFollowup.classList.add("hidden");
     tabHistory.classList.add("hidden");
     tabWelcome.classList.add("hidden");
+    manageStaffButton.classList.add("hidden");
     showAdminTab("list");
   }
   else if(role === "admin"){
@@ -836,6 +1118,7 @@ function showAdmin(role="admin"){
     tabFollowup.classList.remove("hidden");
     tabHistory.classList.remove("hidden");
     tabWelcome.classList.remove("hidden");
+    manageStaffButton.classList.remove("hidden");
     showAdminTab("list");
   }
   else{
@@ -904,6 +1187,129 @@ function showAdminTab(tab){
     }
   }
 }
+function showStaffManagementView(){
+  if (CURRENT_STAFF_ROLE !== "admin") return;
+
+  document.getElementById("registrationView").classList.add("hidden");
+  document.getElementById("thankYouView").classList.add("hidden");
+  document.getElementById("adminLoginView").classList.add("hidden");
+  document.getElementById("adminView").classList.add("hidden");
+  document.getElementById("platformAdminView").classList.add("hidden");
+  document.getElementById("staffManagementView").classList.remove("hidden");
+
+  renderStaffManagement();
+}
+
+function backToVisitorDashboard(){
+  if (CURRENT_STAFF_ROLE !== "admin") return;
+
+  document.getElementById("staffManagementView").classList.add("hidden");
+  document.getElementById("adminView").classList.remove("hidden");
+  showAdminTab("list");
+}
+
+function staffRoleLabel(role){
+  const labels = {
+    admin: "Admin / Pastor",
+    greeter: "Greeter / Usher",
+    outreach: "Outreach",
+    media: "Media"
+  };
+  return labels[role] || role || "—";
+}
+
+async function renderStaffManagement(){
+  if (CURRENT_STAFF_ROLE !== "admin") return;
+
+  const rows = document.getElementById("staffRows");
+  rows.innerHTML = `<tr><td colspan="4" class="subtle">Loading staff...</td></tr>`;
+
+  const { data, error } = await supabaseClient
+    .from("church_users")
+    .select("user_id, first_name, last_name, invited_email, role, invitation_status")
+    .eq("church_id", CHURCH_ID)
+    .order("first_name", { ascending: true });
+
+  if (error) {
+    console.error("Staff list error:", error);
+    rows.innerHTML = `<tr><td colspan="4" class="subtle">Unable to load staff.</td></tr>`;
+    return;
+  }
+
+  rows.innerHTML = data?.length ? data.map(member => {
+    const name = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "Staff Member";
+    return `<tr>
+      <td><strong>${esc(name)}</strong></td>
+      <td>${esc(member.invited_email || "—")}</td>
+      <td>${esc(staffRoleLabel(member.role))}</td>
+      <td>${esc((member.invitation_status || "active").replace(/^./, c => c.toUpperCase()))}</td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="4" class="subtle">No staff members yet.</td></tr>`;
+}
+
+async function inviteChurchStaff(event){
+  event.preventDefault();
+
+  if (CURRENT_STAFF_ROLE !== "admin") return;
+
+  const button = document.getElementById("staffInviteButton");
+  const message = document.getElementById("staffInviteMessage");
+
+  const payload = {
+    firstName: document.getElementById("staffFirstName").value.trim(),
+    lastName: document.getElementById("staffLastName").value.trim(),
+    email: document.getElementById("staffEmail").value.trim(),
+    role: document.getElementById("staffRole").value,
+    churchId: CHURCH_ID,
+    churchSlug: CURRENT_CHURCH?.slug || CURRENT_CHURCH?.church_slug || new URLSearchParams(window.location.search).get("church") || ""
+  };
+
+  message.classList.add("hidden");
+  button.disabled = true;
+  button.textContent = "Sending Invitation...";
+
+  try {
+    const { data, error } = await supabaseClient.functions.invoke(
+      "invite-church-staff",
+      { body: payload }
+    );
+
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.error || "Unable to invite staff member.");
+
+    message.textContent = `Invitation sent to ${data.staff.email}.`;
+    message.style.color = "var(--success)";
+    message.classList.remove("hidden");
+    document.getElementById("staffInviteForm").reset();
+    await renderStaffManagement();
+  } catch (error) {
+    console.error("Staff invitation error:", error);
+    let errorMessage = error?.message || "Unable to invite staff member.";
+
+    if (error?.context && typeof error.context.json === "function") {
+      try {
+        const details = await error.context.json();
+        if (details?.error) {
+          errorMessage = details.stage ? `${details.error} [Stage: ${details.stage}]` : details.error;
+        }
+      } catch (responseError) {
+        console.error("Could not read staff invitation response:", responseError);
+      }
+    }
+
+    message.textContent = errorMessage;
+    message.style.color = "var(--danger)";
+    message.classList.remove("hidden");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Send Staff Invitation";
+  }
+}
+
+document
+  .getElementById("staffInviteForm")
+  .addEventListener("submit", inviteChurchStaff);
+
 function formatBirthday(visitor){
   if (!visitor.birth_month && !visitor.birth_day && !visitor.birth_year) return "—";
 
@@ -1072,6 +1478,12 @@ async function openVisitorDetail(visitorId, source="list"){
         })
       : "—";
 
+  document.getElementById("firstContactedBy").textContent =
+    visitor.first_contacted_by_name || "—";
+
+  document.getElementById("lastContactedBy").textContent =
+    visitor.last_contacted_by_name || "—";
+
   document.getElementById("followUpMessage").classList.add("hidden");
 
   renderSLA(visitor);
@@ -1102,13 +1514,50 @@ async function saveFollowUp(){
   message.classList.add("hidden");
 
   try {
+    const { data: authData, error: authError } =
+      await supabaseClient.auth.getUser();
+
+    if (authError || !authData?.user) {
+      throw authError || new Error("No authenticated staff user.");
+    }
+
+    const { data: staffMembership, error: staffError } = await supabaseClient
+      .from("church_users")
+      .select("first_name, last_name")
+      .eq("user_id", authData.user.id)
+      .eq("church_id", CHURCH_ID)
+      .single();
+
+    if (staffError) throw staffError;
+
+    const staffName =
+      `${staffMembership?.first_name || ""} ${staffMembership?.last_name || ""}`.trim() ||
+      authData.user.email ||
+      "Staff Member";
+
+    const updatePayload = {
+      follow_up_status: status,
+      follow_up_notes: notes || null,
+      followed_up_at: followedUpAt
+    };
+
+    if (status === "Contacted") {
+      updatePayload.last_contacted_by = authData.user.id;
+      updatePayload.last_contacted_by_name = staffName;
+
+      // Only assign first-contact accountability when this is truly
+      // the visitor's first recorded contact. The database trigger
+      // permanently protects it after that.
+      if (!existingVisitor?.first_contacted_at &&
+          !existingVisitor?.first_contacted_by) {
+        updatePayload.first_contacted_by = authData.user.id;
+        updatePayload.first_contacted_by_name = staffName;
+      }
+    }
+
     const { data, error } = await supabaseClient
       .from("visitors")
-      .update({
-        follow_up_status: status,
-        follow_up_notes: notes || null,
-        followed_up_at: followedUpAt
-      })
+      .update(updatePayload)
       .eq("id", visitorId)
       .eq("church_id", CHURCH_ID)
       .select()
@@ -1143,6 +1592,12 @@ async function saveFollowUp(){
             timeStyle: "short"
           })
         : "—";
+
+    document.getElementById("firstContactedBy").textContent =
+      data.first_contacted_by_name || "—";
+
+    document.getElementById("lastContactedBy").textContent =
+      data.last_contacted_by_name || "—";
 
     renderSLA(data);
 
@@ -1297,8 +1752,12 @@ const SUPABASE_URL = "https://qfgmgkbnfhkucheyuuai.supabase.co";
 let CHURCH_ID = null;
 let CURRENT_CHURCH = null;
 
-async function loadChurchConfiguration() {
-  const params = new URLSearchParams(window.location.search);
+async function loadChurchConfiguration() {  
+ const params = new URLSearchParams(window.location.search);
+
+  if (params.get("platform") === "admin") {
+    return { platformMode: true };
+  }
   const churchSlug = params.get("church");
 
   if (!churchSlug) {
@@ -1324,6 +1783,10 @@ async function loadChurchConfiguration() {
   return church;
 }
 
+// Capture the auth callback before Supabase processes/cleans the URL.
+const INITIAL_AUTH_HASH = window.location.hash;
+const INITIAL_AUTH_QUERY = window.location.search;
+
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   window.VISITOR_CONNECT_SUPABASE_KEY
@@ -1332,6 +1795,43 @@ const supabaseClient = window.supabase.createClient(
 async function initializeVisitorConnect() {
   try {
     const church = await loadChurchConfiguration();
+
+if (church.platformMode) {
+      document.getElementById("brandLogo").textContent = "V";
+      document.getElementById("brandTitle").textContent = "VISITOR CONNECT";
+      document.getElementById("brandSubtitle").textContent = "Platform Administration";
+      document.getElementById("topActions").classList.add("hidden");
+
+      document.getElementById("adminLoginTitle").textContent =
+        "Platform Administrator Login";
+      document.getElementById("adminLoginSubtitle").textContent =
+        "Sign in to manage Visitor Connect.";
+      document.getElementById("backToRegistrationButton").classList.add("hidden");
+
+      document.getElementById("registrationView").classList.add("hidden");
+      document.getElementById("thankYouView").classList.add("hidden");
+      document.getElementById("adminView").classList.add("hidden");
+      document.getElementById("platformAdminView").classList.add("hidden");
+
+      showAdminLogin();
+      return;
+    }
+
+// Apply the selected church's identity to the registration experience.
+    document.getElementById("brandLogo").textContent =
+      (church.church_name || "C").trim().charAt(0).toUpperCase();
+    document.getElementById("brandTitle").textContent =
+      church.church_name || "Visitor Connect";
+    document.getElementById("brandSubtitle").textContent =
+      "Welcome to Visitor Connect";
+
+    const registrationHeading =
+      document.querySelector("#registrationView .hero h2");
+
+    if (registrationHeading) {
+      registrationHeading.innerHTML =
+        `Welcome to<br>${esc(church.church_name || "our church")}!<br>We’re glad you’re here.`;
+    }
 
     console.log("Visitor Connect church loaded:", church.church_name);
 
@@ -1369,7 +1869,7 @@ async function requestPasswordReset(){
 
   try {
     const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + window.location.pathname
+      redirectTo: window.location.origin + window.location.pathname + window.location.search
     });
 
     if (error) throw error;
@@ -1446,7 +1946,7 @@ document.getElementById("resetPasswordForm").addEventListener("submit", async e 
     loginMessage.textContent = "Password updated. Sign in with your new password.";
     loginMessage.classList.remove("hidden");
 
-    history.replaceState(null, "", window.location.pathname);
+    history.replaceState(null, "", window.location.pathname + window.location.search);
 
   } catch (error) {
     console.error("Password update error:", error);
@@ -1458,8 +1958,23 @@ document.getElementById("resetPasswordForm").addEventListener("submit", async e 
   }
 });
 
+function isStaffInvitationLink(){
+  const currentHash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const initialHash = new URLSearchParams(INITIAL_AUTH_HASH.replace(/^#/, ""));
+  const currentQuery = new URLSearchParams(window.location.search);
+  const initialQuery = new URLSearchParams(INITIAL_AUTH_QUERY);
+
+  return currentHash.get("type") === "invite" ||
+         initialHash.get("type") === "invite" ||
+         currentQuery.get("type") === "invite" ||
+         initialQuery.get("type") === "invite";
+}
+
 supabaseClient.auth.onAuthStateChange((event, session) => {
-  if (event === "PASSWORD_RECOVERY") {
+  const inviteSession = session && isStaffInvitationLink();
+
+  if (event === "PASSWORD_RECOVERY" ||
+      ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && inviteSession)) {
     showResetPasswordView();
   }
 });
@@ -1485,16 +2000,49 @@ document.getElementById("adminLoginForm").addEventListener("submit", async e => 
 
     if (error) throw error;
 
+    const params = new URLSearchParams(window.location.search);
+    const platformMode = params.get("platform") === "admin";
+
+    document.getElementById("adminPassword").value = "";
+
+    // Platform Administration is available only from ?platform=admin.
+    if (platformMode) {
+      const platformAdmin = await isPlatformAdmin(data.user);
+
+      if (!platformAdmin) {
+        await supabaseClient.auth.signOut();
+        errorBox.textContent =
+          "This account does not have Platform Administrator access.";
+        errorBox.classList.remove("hidden");
+        return;
+      }
+
+      showPlatformAdmin();
+      return;
+    }
+
+    // A church URL always checks membership for that specific church,
+    // even when the same person is also a Platform Administrator.
     const membership = await verifyAdminAccess(data.user);
 
     if (!membership) {
       await supabaseClient.auth.signOut();
-      errorBox.textContent = "Your account does not have access to this church.";
+      errorBox.textContent =
+        "Your account does not have access to this church.";
       errorBox.classList.remove("hidden");
       return;
     }
 
-    document.getElementById("adminPassword").value = "";
+    // A successful church login activates this user's membership.
+    const { error: activationError } = await supabaseClient.rpc(
+      "activate_my_church_membership",
+      { target_church_id: CHURCH_ID }
+    );
+
+    if (activationError) {
+      console.error("Membership activation error:", activationError);
+    }
+
     showAdmin(membership.role || "admin");
 
   } catch (error) {
