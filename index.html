@@ -677,6 +677,17 @@
         </button>
       </div>
     </form>
+
+    <div class="divider"></div>
+
+    <div>
+      <h3 class="section-title">Existing Churches</h3>
+      <div class="subtle" style="margin-bottom:14px">Open registration or manage church data. Destructive actions require confirmation.</div>
+      <div id="platformChurchListMessage" class="hidden" role="status" style="margin-bottom:14px"></div>
+      <div id="platformChurchList" class="grid">
+        <div class="subtle">Loading churches...</div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -986,6 +997,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="supabase-config.js"></script>
 <script>
 let photoData = "";
@@ -1118,6 +1130,7 @@ async function createPlatformChurch(event){
     message.classList.remove("hidden");
 
     document.getElementById("platformChurchForm").reset();
+    await loadPlatformChurches();
 
   } catch (error) {
     console.error("Create church error:", error);
@@ -1151,6 +1164,282 @@ document
   .getElementById("platformChurchForm")
   .addEventListener("submit", createPlatformChurch);
 
+function platformRegistrationUrl(slug){
+  return `https://getvisitorconnect.com/?church=${encodeURIComponent(slug)}`;
+}
+
+function setPlatformChurchListMessage(text, isError=false){
+  const box = document.getElementById("platformChurchListMessage");
+  if (!box) return;
+  if (!text) {
+    box.textContent = "";
+    box.classList.add("hidden");
+    return;
+  }
+  box.textContent = text;
+  box.style.color = isError ? "var(--danger)" : "var(--success)";
+  box.classList.remove("hidden");
+}
+
+async function loadPlatformChurches(){
+  const list = document.getElementById("platformChurchList");
+  if (!list) return;
+
+  list.innerHTML = '<div class="subtle">Loading churches...</div>';
+  setPlatformChurchListMessage("");
+
+  let churches = [];
+
+  try {
+    const data = await invokeManageChurch({
+      action: "list_churches"
+    });
+    churches = data.churches || [];
+  } catch (error) {
+    console.error("Church list error:", error);
+    list.innerHTML = '<div class="subtle">Unable to load churches.</div>';
+    setPlatformChurchListMessage(error?.message || "Unable to load churches. Please refresh and try again.", true);
+    return;
+  }
+
+  if (!churches?.length) {
+    list.innerHTML = '<div class="subtle">No churches found.</div>';
+    return;
+  }
+
+  list.innerHTML = "";
+
+  churches.forEach(church => {
+    const row = document.createElement("div");
+    row.className = "detail-item";
+    row.style.background = "#fff";
+    row.style.border = "1px solid var(--line)";
+
+    const top = document.createElement("div");
+    top.style.display = "flex";
+    top.style.justifyContent = "space-between";
+    top.style.alignItems = "flex-start";
+    top.style.gap = "14px";
+    top.style.flexWrap = "wrap";
+
+    const info = document.createElement("div");
+    const name = document.createElement("div");
+    name.style.fontSize = "18px";
+    name.style.fontWeight = "700";
+    name.textContent = church.name;
+    const slug = document.createElement("div");
+    slug.className = "subtle";
+    slug.style.marginTop = "4px";
+    slug.textContent = `Registration: ${platformRegistrationUrl(church.slug)}`;
+    info.append(name, slug);
+
+    const actions = document.createElement("div");
+    actions.style.display = "flex";
+    actions.style.gap = "8px";
+    actions.style.flexWrap = "wrap";
+
+    const openButton = document.createElement("button");
+    openButton.type = "button";
+    openButton.className = "btn-ghost";
+    openButton.textContent = "Open Registration";
+    openButton.onclick = () => window.open(platformRegistrationUrl(church.slug), "_blank", "noopener");
+
+    const qrButton = document.createElement("button");
+    qrButton.type = "button";
+    qrButton.className = "btn-secondary";
+    qrButton.textContent = "Generate QR Code";
+    qrButton.onclick = () => showPlatformChurchQr(church, row, qrButton);
+
+    const clearButton = document.createElement("button");
+    clearButton.type = "button";
+    clearButton.className = "btn-secondary";
+    clearButton.textContent = "Clear Visitor Data";
+    clearButton.onclick = () => clearPlatformChurchVisitors(church, clearButton);
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "btn-danger";
+    deleteButton.textContent = "Delete Church";
+    deleteButton.onclick = () => deletePlatformChurch(church, deleteButton);
+
+    actions.append(openButton, qrButton, clearButton, deleteButton);
+    top.append(info, actions);
+    row.append(top);
+    list.append(row);
+  });
+}
+
+function safeQrFilename(name){
+  return `${String(name || "church")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "church"}-visitor-connect-qr.png`;
+}
+
+function showPlatformChurchQr(church, row, button){
+  if (typeof QRCode === "undefined") {
+    setPlatformChurchListMessage("QR generator could not load. Please refresh and try again.", true);
+    return;
+  }
+
+  const existing = row.querySelector(".platform-qr-panel");
+  if (existing) {
+    existing.remove();
+    button.textContent = "Generate QR Code";
+    return;
+  }
+
+  document.querySelectorAll(".platform-qr-panel").forEach(panel => panel.remove());
+  document.querySelectorAll("[data-qr-button='true']").forEach(other => {
+    other.textContent = "Generate QR Code";
+  });
+
+  button.dataset.qrButton = "true";
+  button.textContent = "Hide QR Code";
+
+  const url = platformRegistrationUrl(church.slug);
+  const panel = document.createElement("div");
+  panel.className = "platform-qr-panel";
+  panel.style.marginTop = "18px";
+  panel.style.paddingTop = "18px";
+  panel.style.borderTop = "1px solid var(--line)";
+
+  const title = document.createElement("div");
+  title.style.fontWeight = "700";
+  title.style.marginBottom = "6px";
+  title.textContent = `${church.name} Registration QR Code`;
+
+  const help = document.createElement("div");
+  help.className = "subtle";
+  help.style.marginBottom = "14px";
+  help.textContent = "Scan this code to open the church's Visitor Connect registration page.";
+
+  const qrWrap = document.createElement("div");
+  qrWrap.style.width = "fit-content";
+  qrWrap.style.padding = "14px";
+  qrWrap.style.background = "#fff";
+  qrWrap.style.border = "1px solid var(--line)";
+  qrWrap.style.borderRadius = "12px";
+
+  const qrTarget = document.createElement("div");
+  qrWrap.append(qrTarget);
+
+  const urlText = document.createElement("div");
+  urlText.className = "subtle";
+  urlText.style.marginTop = "12px";
+  urlText.style.wordBreak = "break-all";
+  urlText.textContent = url;
+
+  const downloadButton = document.createElement("button");
+  downloadButton.type = "button";
+  downloadButton.className = "btn-primary";
+  downloadButton.style.marginTop = "14px";
+  downloadButton.textContent = "Download QR Code PNG";
+
+  panel.append(title, help, qrWrap, urlText, downloadButton);
+  row.append(panel);
+
+  new QRCode(qrTarget, {
+    text: url,
+    width: 256,
+    height: 256,
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  downloadButton.onclick = () => {
+    const canvas = qrTarget.querySelector("canvas");
+    const image = qrTarget.querySelector("img");
+    const href = canvas?.toDataURL("image/png") || image?.src;
+
+    if (!href) {
+      setPlatformChurchListMessage("QR code is still being prepared. Please try again.", true);
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = safeQrFilename(church.name);
+    document.body.append(link);
+    link.click();
+    link.remove();
+  };
+}
+
+async function invokeManageChurch(body){
+  const { data, error } = await supabaseClient.functions.invoke("manage-church", { body });
+  if (error) {
+    let message = error?.message || "Unable to manage church.";
+    if (error?.context && typeof error.context.json === "function") {
+      try {
+        const details = await error.context.json();
+        if (details?.error) message = details.error;
+      } catch (_) {}
+    }
+    throw new Error(message);
+  }
+  if (!data?.success) throw new Error(data?.error || "Unable to manage church.");
+  return data;
+}
+
+async function clearPlatformChurchVisitors(church, button){
+  const confirmed = window.confirm(
+    `Clear ALL visitor records and visitor photos for ${church.name}?\n\nThe church and staff accounts will remain. This cannot be undone.`
+  );
+  if (!confirmed) return;
+
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Clearing...";
+  setPlatformChurchListMessage("");
+
+  try {
+    const data = await invokeManageChurch({
+      action: "clear_visitor_data",
+      churchId: church.id
+    });
+    setPlatformChurchListMessage(data.message || `Visitor data cleared for ${church.name}.`);
+  } catch (error) {
+    console.error("Clear visitor data error:", error);
+    setPlatformChurchListMessage(error?.message || "Unable to clear visitor data.", true);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
+async function deletePlatformChurch(church, button){
+  const confirmation = window.prompt(
+    `DELETE CHURCH\n\nThis permanently removes ${church.name}, its visitors, visitor photos, and church staff memberships. Auth accounts are not deleted.\n\nType the church name exactly to continue:\n${church.name}`
+  );
+
+  if (confirmation === null) return;
+  if (confirmation.trim() !== church.name) {
+    setPlatformChurchListMessage("Church name did not match. Nothing was deleted.", true);
+    return;
+  }
+
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Deleting...";
+  setPlatformChurchListMessage("");
+
+  try {
+    const data = await invokeManageChurch({
+      action: "delete_church",
+      churchId: church.id,
+      confirmation: confirmation.trim()
+    });
+    setPlatformChurchListMessage(data.message || `${church.name} was deleted.`);
+    await loadPlatformChurches();
+  } catch (error) {
+    console.error("Delete church error:", error);
+    setPlatformChurchListMessage(error?.message || "Unable to delete church.", true);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
 async function isPlatformAdmin(user){
   const { data, error } = await supabaseClient
     .rpc("is_platform_admin");
@@ -1169,6 +1458,7 @@ function showPlatformAdmin(){
   document.getElementById("adminLoginView").classList.add("hidden");
   document.getElementById("adminView").classList.add("hidden");
   document.getElementById("platformAdminView").classList.remove("hidden");
+  loadPlatformChurches();
 }
 
 async function verifyAdminAccess(user){
