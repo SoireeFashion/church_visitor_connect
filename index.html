@@ -217,6 +217,7 @@
   </div>
   <div class="top-actions" id="topActions">
     <button class="btn-secondary" onclick="showRegistration()">Registration</button>
+    <button id="platformAdminButton" class="btn-primary hidden" type="button" onclick="openPlatformAdministration()">Platform Administration</button>
     <button class="btn-ghost" onclick="showAdminLogin()">Staff Login</button>
   </div>
 </header>
@@ -1165,7 +1166,7 @@ document
   .addEventListener("submit", createPlatformChurch);
 
 function platformRegistrationUrl(slug){
-  return `https://getvisitorconnect.com/?church=${encodeURIComponent(slug)}`;
+  return `${window.location.origin}/?church=${encodeURIComponent(slug)}`;
 }
 
 function setPlatformChurchListMessage(text, isError=false){
@@ -1452,6 +1453,36 @@ async function isPlatformAdmin(user){
   return data === true;
 }
 
+function openPlatformAdministration(){
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.searchParams.set("platform", "admin");
+  history.pushState(null, "", url);
+
+  document.getElementById("brandLogo").textContent = "V";
+  document.getElementById("brandTitle").textContent = "VISITOR CONNECT";
+  document.getElementById("brandSubtitle").textContent = "Platform Administration";
+  document.getElementById("topActions").classList.add("hidden");
+
+  showPlatformAdmin();
+}
+
+async function updatePlatformAdminButton(){
+  const button = document.getElementById("platformAdminButton");
+  if (!button) return;
+
+  const { data } = await supabaseClient.auth.getSession();
+  const user = data?.session?.user;
+
+  if (!user) {
+    button.classList.add("hidden");
+    return;
+  }
+
+  const allowed = await isPlatformAdmin(user);
+  button.classList.toggle("hidden", !allowed);
+}
+
 function showPlatformAdmin(){
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
@@ -1520,6 +1551,9 @@ async function loadChurchForAuthenticatedUser(churchId){
 
 async function adminLogout(){
   await supabaseClient.auth.signOut();
+
+  const platformButton = document.getElementById("platformAdminButton");
+  if (platformButton) platformButton.classList.add("hidden");
 
   const form = document.getElementById("adminLoginForm");
   const password = document.getElementById("adminPassword");
@@ -2724,6 +2758,7 @@ document.getElementById("adminLoginForm").addEventListener("submit", async e => 
     }
 
     showAdmin(membership.role || "admin");
+    await updatePlatformAdminButton();
 
   } catch (error) {
     console.error("Admin login error:", error);
