@@ -614,16 +614,47 @@
       </div>
 
       <div style="margin-top:14px">
-        <label for="platformChurchSlug">Registration URL*</label>
-        <input
-          id="platformChurchSlug"
-          required
-          autocomplete="off"
-        />
+        <label for="platformChurchSlug">Registration Link*</label>
+
+        <div style="display:flex;align-items:stretch;gap:0;flex-wrap:wrap">
+          <div
+            style="
+              padding:14px;
+              background:#f3f4f6;
+              border:1px solid var(--line);
+              border-right:none;
+              border-radius:12px 0 0 12px;
+              color:var(--muted);
+              white-space:nowrap;
+              display:flex;
+              align-items:center;
+            "
+          >
+            https://getvisitorconnect.com/?church=
+          </div>
+
+          <input
+            id="platformChurchSlug"
+            required
+            autocomplete="off"
+            style="
+              flex:1;
+              min-width:220px;
+              border-radius:0 12px 12px 0;
+            "
+          />
+        </div>
 
         <div class="subtle" style="margin-top:6px">
-          Visitor Connect will generate this from the church name.
-          You can edit it before creating the church.
+          Visitor Connect creates the church-specific ending automatically from the church name.
+          You may edit only that ending before creating the church.
+        </div>
+
+        <div class="subtle" style="margin-top:6px">
+          Full registration link:
+          <strong id="platformRegistrationPreview">
+            https://getvisitorconnect.com/?church=
+          </strong>
         </div>
       </div>
 
@@ -1131,6 +1162,7 @@ async function createPlatformChurch(event){
     message.classList.remove("hidden");
 
     document.getElementById("platformChurchForm").reset();
+    updatePlatformRegistrationPreview();
     await loadPlatformChurches();
 
   } catch (error) {
@@ -1164,6 +1196,44 @@ async function createPlatformChurch(event){
 document
   .getElementById("platformChurchForm")
   .addEventListener("submit", createPlatformChurch);
+
+function makeChurchSlug(value=""){
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+const platformChurchNameInput =
+  document.getElementById("platformChurchName");
+
+const platformChurchSlugInput =
+  document.getElementById("platformChurchSlug");
+
+const platformRegistrationPreview =
+  document.getElementById("platformRegistrationPreview");
+
+function updatePlatformRegistrationPreview(){
+  const slug = platformChurchSlugInput.value.trim();
+
+  platformRegistrationPreview.textContent =
+    `https://getvisitorconnect.com/?church=${slug}`;
+}
+
+platformChurchNameInput.addEventListener("input", () => {
+  platformChurchSlugInput.value =
+    makeChurchSlug(platformChurchNameInput.value);
+
+  updatePlatformRegistrationPreview();
+});
+
+platformChurchSlugInput.addEventListener("input", () => {
+  platformChurchSlugInput.value =
+    makeChurchSlug(platformChurchSlugInput.value);
+
+  updatePlatformRegistrationPreview();
+});
 
 function platformRegistrationUrl(slug){
   return `${window.location.origin}/?church=${encodeURIComponent(slug)}`;
