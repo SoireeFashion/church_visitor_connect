@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2687,36 +2686,22 @@ document.getElementById("adminLoginForm").addEventListener("submit", async e => 
 
     document.getElementById("adminPassword").value = "";
 
-    // Explicit Platform Administration links always require platform-admin access.
-    if (platformMode) {
-      const platformAdmin = await isPlatformAdmin(data.user);
+    // Platform administrators always enter Platform Administration first,
+    // even if they signed in from a church-specific page.
+    const platformAdmin = await isPlatformAdmin(data.user);
 
-      if (!platformAdmin) {
-        await supabaseClient.auth.signOut();
-        errorBox.textContent =
-          "This account does not have Platform Administrator access.";
-        errorBox.classList.remove("hidden");
-        return;
-      }
-
+    if (platformAdmin) {
       openPlatformAdministration();
       return;
     }
 
-    // On the GLOBAL Staff Login, platform administrators go to the platform
-    // dashboard before any church membership is resolved. This prevents a
-    // platform administrator who is also a COP staff member from being dropped
-    // into the Cathedral of Praise tenant automatically.
-    //
-    // Church-specific links (?church=...) still behave as church logins so a
-    // platform administrator can deliberately enter a church when needed.
-    if (!churchSlug) {
-      const platformAdmin = await isPlatformAdmin(data.user);
-
-      if (platformAdmin) {
-        openPlatformAdministration();
-        return;
-      }
+    // A non-platform user who intentionally opened ?platform=admin is not allowed in.
+    if (platformMode) {
+      await supabaseClient.auth.signOut();
+      errorBox.textContent =
+        "This account does not have Platform Administrator access.";
+      errorBox.classList.remove("hidden");
+      return;
     }
 
     let membership = null;
