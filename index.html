@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2682,10 +2683,11 @@ document.getElementById("adminLoginForm").addEventListener("submit", async e => 
 
     const params = new URLSearchParams(window.location.search);
     const platformMode = params.get("platform") === "admin";
+    const churchSlug = params.get("church");
 
     document.getElementById("adminPassword").value = "";
 
-    // Platform Administration is available only from ?platform=admin.
+    // Explicit Platform Administration links always require platform-admin access.
     if (platformMode) {
       const platformAdmin = await isPlatformAdmin(data.user);
 
@@ -2697,11 +2699,26 @@ document.getElementById("adminLoginForm").addEventListener("submit", async e => 
         return;
       }
 
-      showPlatformAdmin();
+      openPlatformAdministration();
       return;
     }
 
-    const churchSlug = params.get("church");
+    // On the GLOBAL Staff Login, platform administrators go to the platform
+    // dashboard before any church membership is resolved. This prevents a
+    // platform administrator who is also a COP staff member from being dropped
+    // into the Cathedral of Praise tenant automatically.
+    //
+    // Church-specific links (?church=...) still behave as church logins so a
+    // platform administrator can deliberately enter a church when needed.
+    if (!churchSlug) {
+      const platformAdmin = await isPlatformAdmin(data.user);
+
+      if (platformAdmin) {
+        openPlatformAdministration();
+        return;
+      }
+    }
+
     let membership = null;
 
     if (churchSlug) {
