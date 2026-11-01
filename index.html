@@ -790,6 +790,11 @@
   </section>
 
   <section id="adminView" class="hidden">
+    <div id="platformDashboardBanner" class="card hidden" style="margin-bottom:16px">
+      <strong id="platformDashboardIdentity"></strong>
+      <div class="subtle" style="margin:8px 0">Viewing this church as SuperAdmin. Visitor and staff records are unchanged.</div>
+      <button class="btn-secondary" type="button" onclick="openPlatformAdministration()">Return to Platform Administration</button>
+    </div>
     <div class="hero">
       <h2 id="dashboardTitle">Visitor Dashboard</h2>
       <p id="dashboardSubtitle">Church visitor management.</p>
@@ -1252,6 +1257,156 @@ function setPlatformChurchListMessage(text, isError=false){
   box.classList.remove("hidden");
 }
 
+let PLATFORM_DASHBOARD_CHURCH_ID = null;
+let PLATFORM_DASHBOARD_VISITORS = [];
+let DASHBOARD_EPOCH = 0;
+
+function clearPlatformDashboard(keepChurch=false){
+  const previousId = CHURCH_ID, previousChurch = CURRENT_CHURCH;
+  DASHBOARD_EPOCH++;
+  PLATFORM_DASHBOARD_CHURCH_ID = null;
+  PLATFORM_DASHBOARD_VISITORS = [];
+  CHURCH_ID = keepChurch ? previousId : null;
+  CURRENT_CHURCH = keepChurch ? previousChurch : null;
+  CURRENT_STAFF_ROLE = null;
+  window.currentVisitors = [];
+  window.allVisitors = [];
+  window.currentVisitorId = null;
+  window.visitorDetailSource = null;
+  ["visitorRows", "historyRows", "followupRows", "welcomeNames", "staffRows"].forEach(id => {
+    document.getElementById(id)?.replaceChildren();
+  });
+  document.querySelectorAll("#visitorDetailTab .detail-value").forEach(el => { el.textContent = "—"; });
+  ["detailName", "firstContactedBy", "lastContactedBy", "followedUpAt", "responseTime", "slaStatus"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.textContent = "";
+  });
+  ["followUpNotes", "historySearch"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  document.getElementById("detailPhoto")?.removeAttribute("src");
+  document.getElementById("detailPhotoArea")?.classList.add("hidden");
+  document.getElementById("visitorDetailTab")?.classList.add("hidden");
+  document.getElementById("platformDashboardBanner")?.classList.add("hidden");
+  document.getElementById("adminView")?.classList.add("hidden");
+  ["statToday", "statFirst", "statReturning", "statFollowup"].forEach(id => { document.getElementById(id).textContent = "0"; });
+  ["followUpStatus", "followUpNotes", "saveFollowUpButton"].forEach(id => { document.getElementById(id).disabled = false; });
+}
+
+async function viewPlatformChurchDashboard(church, button){
+  clearPlatformDashboard();
+  const epoch = DASHBOARD_EPOCH;
+  button.disabled = true;
+  setPlatformChurchListMessage("Loading selected church dashboard...");
+  try {
+    const data = await invokeManageChurch({ action: "dashboard", churchId: church.id });
+    if (epoch !== DASHBOARD_EPOCH) return;
+    if (data.church?.id !== church.id || !Array.isArray(data.visitors) ||
+        data.visitors.some(visitor => visitor.church_id !== church.id)) {
+      throw new Error("Unable to verify the selected church's dashboard.");
+    }
+    CHURCH_ID = church.id;
+    CURRENT_CHURCH = { ...data.church, church_name: data.church.name, church_slug: data.church.slug };
+    PLATFORM_DASHBOARD_CHURCH_ID = church.id;
+    PLATFORM_DASHBOARD_VISITORS = data.visitors;
+    document.getElementById("brandLogo").textContent = data.church.name.trim().charAt(0).toUpperCase();
+    document.getElementById("brandTitle").textContent = data.church.name;
+    document.getElementById("brandSubtitle").textContent = "SuperAdmin · Church Dashboard";
+    document.getElementById("platformDashboardIdentity").textContent = `${data.church.name} — ${data.church.slug} · SuperAdmin view only`;
+    document.getElementById("platformDashboardBanner").classList.remove("hidden");
+    document.getElementById("platformAdminView").classList.add("hidden");
+    const url = new URL(window.location.href);
+    url.search = ""; url.searchParams.set("platform", "admin"); url.searchParams.set("dashboard", church.id);
+    history.pushState(null, "", url);
+    showAdmin("admin");
+    document.getElementById("manageStaffButton").classList.add("hidden");
+    ["followUpStatus", "followUpNotes", "saveFollowUpButton"].forEach(id => { document.getElementById(id).disabled = true; });
+    setPlatformChurchListMessage("");
+  } catch (error) {
+    if (epoch !== DASHBOARD_EPOCH) return;
+    clearPlatformDashboard();
+    document.getElementById("adminView").classList.add("hidden");
+    document.getElementById("platformAdminView").classList.remove("hidden");
+    setPlatformChurchListMessage(error?.message || "Unable to open church dashboard.", true);
+  } finally { if (button.isConnected) button.disabled = false; }
+}
+
+function showPlatformChurchAdministrators(church, row, button){
+  const existing = row.querySelector(".platform-administrators");
+  if (existing) { existing.remove(); button.textContent = "Manage Administrators"; return; }
+  const panel = document.createElement("section");
+  panel.className = "platform-administrators";
+  panel.style.cssText = "margin-top:18px;border-top:1px solid var(--line);padding-top:16px";
+  const title = document.createElement("h3"); title.textContent = `Administrators — ${church.name}`;
+  const status = document.createElement("div"); status.setAttribute("role", "status"); status.style.marginBottom = "12px";
+  const list = document.createElement("div"); list.className = "grid";
+  const form = document.createElement("form"); form.style.marginTop = "16px";
+  const heading = document.createElement("h4"); heading.textContent = "Invite an additional administrator"; form.append(heading);
+  const inputs = {};
+  for (const [key, labelText, type] of [["firstName", "First Name*", "text"], ["lastName", "Last Name*", "text"], ["email", "Email Address*", "email"]]) {
+    const label = document.createElement("label"); label.htmlFor = `platform-admin-${key}-${church.id}`; label.textContent = labelText;
+    const input = document.createElement("input"); input.id = label.htmlFor; input.type = type; input.required = true;
+    input.maxLength = key === "email" ? 254 : 100; input.style.marginBottom = "12px";
+    inputs[key] = input; form.append(label, input);
+  }
+  const send = document.createElement("button"); send.type = "submit"; send.className = "btn-primary"; send.textContent = "Invite Administrator"; form.append(send);
+  panel.append(title, status, list, form); row.append(panel); button.textContent = "Hide Administrators";
+  let busy = false;
+  let revision = 0;
+  const message = (text, error=false) => { status.textContent = text; status.style.color = error ? "var(--danger)" : "var(--success)"; };
+  const load = async () => {
+    const request = ++revision;
+    list.textContent = "Loading administrators...";
+    try {
+      const data = await invokeManageChurch({ action: "list_administrators", churchId: church.id });
+      if (!panel.isConnected || request !== revision) return;
+      if (data.churchId !== church.id || !Array.isArray(data.administrators) || data.administrators.some(member => member.church_id !== church.id)) {
+        throw new Error("Unable to verify church administrator list.");
+      }
+      list.replaceChildren();
+      for (const member of data.administrators) {
+        const item = document.createElement("div"); item.className = "detail-item";
+        const name = document.createElement("strong"); name.textContent = `${member.first_name || ""} ${member.last_name || ""}`.trim() || "Administrator";
+        const email = document.createElement("div"); email.textContent = member.invited_email || "Email unavailable";
+        const state = document.createElement("div"); state.className = "subtle";
+        state.textContent = member.invitation_status === "active" ? "Active" : member.invitation_status === "invited" ? "Pending invitation" : `Status: ${member.invitation_status || "unknown"}`;
+        item.append(name, email, state);
+        if (member.invitation_status === "invited") {
+          const resend = document.createElement("button"); resend.type = "button"; resend.className = "btn-secondary"; resend.textContent = "Resend Invitation";
+          resend.disabled = busy;
+          resend.onclick = () => act({ action: "resend_administrator", churchId: church.id, membershipId: member.id });
+          item.append(resend);
+        }
+        list.append(item);
+      }
+      if (!data.administrators.length) list.textContent = "No administrators found.";
+    } catch (error) {
+      if (!panel.isConnected || request !== revision) return;
+      list.textContent = "Administrators could not be loaded."; message(error?.message || "Unable to load administrators.", true);
+      const retry = document.createElement("button"); retry.type = "button"; retry.className = "btn-ghost"; retry.textContent = "Retry"; retry.onclick = load; list.append(retry);
+    }
+  };
+  const act = async payload => {
+    if (busy) return;
+    busy = true; panel.querySelectorAll("input,button").forEach(el => { el.disabled = true; }); message("Sending invitation...");
+    try {
+      const data = await invokeManageChurch(payload);
+      if (!panel.isConnected) return;
+      message(data.message || "Invitation sent.");
+      if (payload.action === "invite_administrator") form.reset();
+    } catch (error) {
+      if (panel.isConnected) message(error?.message || "Invitation could not be sent.", true);
+    } finally {
+      busy = false;
+      if (panel.isConnected) { panel.querySelectorAll("input,button").forEach(el => { el.disabled = false; }); await load(); }
+    }
+  };
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    const firstName = inputs.firstName.value.trim(), lastName = inputs.lastName.value.trim(), email = inputs.email.value.trim().toLowerCase();
+    if (!firstName || !lastName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { message("Enter first name, last name, and a valid email address.", true); return; }
+    act({ action: "invite_administrator", churchId: church.id, firstName, lastName, email });
+  });
+  load();
+}
+
 async function loadPlatformChurches(){
   const list = document.getElementById("platformChurchList");
   if (!list) return;
@@ -1333,10 +1488,128 @@ async function loadPlatformChurches(){
     deleteButton.textContent = "Delete Church";
     deleteButton.onclick = () => deletePlatformChurch(church, deleteButton);
 
-    actions.append(openButton, qrButton, clearButton, deleteButton);
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "btn-secondary";
+    editButton.textContent = "Edit Church";
+    editButton.onclick = () => showPlatformChurchEditor(church, row, name, actions, editButton);
+
+    const dashboardButton = document.createElement("button");
+    dashboardButton.type = "button"; dashboardButton.className = "btn-primary"; dashboardButton.textContent = "View Dashboard";
+    dashboardButton.onclick = () => viewPlatformChurchDashboard(church, dashboardButton);
+    const administratorsButton = document.createElement("button");
+    administratorsButton.type = "button"; administratorsButton.className = "btn-secondary"; administratorsButton.textContent = "Manage Administrators";
+    administratorsButton.onclick = () => showPlatformChurchAdministrators(church, row, administratorsButton);
+    actions.append(editButton, dashboardButton, administratorsButton, openButton, qrButton, clearButton, deleteButton);
     top.append(info, actions);
     row.append(top);
     list.append(row);
+  });
+}
+
+function validatePlatformChurchEdit(name, website){
+  if (!name || name.length > 200) {
+    return "Church name is required and must be 200 characters or fewer.";
+  }
+  if (website.length > 2048) return "Website must be 2,048 characters or fewer.";
+  if (website) {
+    try {
+      const url = new URL(website);
+      if (!["https:", "http:"].includes(url.protocol) || !url.hostname ||
+          url.username || url.password) throw new Error("Invalid website");
+    } catch {
+      return "Enter a complete http:// or https:// website URL without login credentials, or leave it blank.";
+    }
+  }
+  return "";
+}
+
+function showPlatformChurchEditor(church, row, nameDisplay, actions, editButton){
+  if (row.querySelector(".platform-church-editor")) return;
+  setPlatformChurchListMessage("");
+  editButton.disabled = true;
+  const form = document.createElement("form");
+  form.className = "platform-church-editor";
+  form.style.marginTop = "18px";
+
+  const nameLabel = document.createElement("label");
+  nameLabel.htmlFor = `edit-church-name-${church.id}`;
+  nameLabel.textContent = "Church Name*";
+  const nameInput = document.createElement("input");
+  nameInput.id = nameLabel.htmlFor;
+  nameInput.required = true;
+  nameInput.maxLength = 200;
+  nameInput.value = church.name || "";
+
+  const websiteLabel = document.createElement("label");
+  websiteLabel.htmlFor = `edit-church-website-${church.id}`;
+  websiteLabel.textContent = "Website";
+  websiteLabel.style.marginTop = "14px";
+  const websiteInput = document.createElement("input");
+  websiteInput.id = websiteLabel.htmlFor;
+  websiteInput.type = "url";
+  websiteInput.maxLength = 2048;
+  websiteInput.placeholder = "https://example.org";
+  websiteInput.value = church.website_url || "";
+
+  const help = document.createElement("div");
+  help.className = "subtle";
+  help.style.marginTop = "8px";
+  help.textContent = "The church's registration link will stay the same. Leave Website blank to clear it.";
+  const message = document.createElement("div");
+  message.setAttribute("role", "status");
+  message.style.marginTop = "12px";
+  const controls = document.createElement("div");
+  controls.style.cssText = "display:flex;gap:8px;margin-top:14px;flex-wrap:wrap";
+  const save = document.createElement("button");
+  save.type = "submit";
+  save.className = "btn-primary";
+  save.textContent = "Save";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "btn-ghost";
+  cancel.textContent = "Cancel";
+  const close = () => { form.remove(); editButton.disabled = false; editButton.focus(); };
+  cancel.onclick = close;
+  controls.append(save, cancel);
+  form.append(nameLabel, nameInput, websiteLabel, websiteInput, help, message, controls);
+  row.append(form);
+  nameInput.focus();
+
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (save.disabled) return;
+    const name = nameInput.value.trim();
+    const websiteUrl = websiteInput.value.trim();
+    message.textContent = validatePlatformChurchEdit(name, websiteUrl);
+    message.style.color = "var(--danger)";
+    if (message.textContent) return;
+    const buttons = Array.from(actions.querySelectorAll("button"));
+    const previousDisabled = buttons.map(button => button.disabled);
+    buttons.forEach(button => { button.disabled = true; });
+    save.disabled = cancel.disabled = nameInput.disabled = websiteInput.disabled = true;
+    save.textContent = "Saving...";
+    try {
+      const data = await invokeManageChurch({ action: "update_church", churchId: church.id, name, websiteUrl });
+      if (!data.church || data.church.id !== church.id || data.church.slug !== church.slug) {
+        throw new Error("Unable to verify saved church details. Refresh the church list before trying again.");
+      }
+      church.name = data.church.name;
+      church.website_url = data.church.website_url;
+      nameDisplay.textContent = church.name;
+      row.querySelector(".platform-qr-panel")?.remove();
+      row.querySelector("[data-qr-button='true']")?.replaceChildren(document.createTextNode("Generate QR Code"));
+      setPlatformChurchListMessage(`Church details saved for ${church.name}. Registration link unchanged.`);
+      close();
+    } catch (error) {
+      message.textContent = error?.message || "Unable to save church details. Please try again.";
+    } finally {
+      buttons.forEach((button, index) => { button.disabled = previousDisabled[index]; });
+      // The Edit button was disabled while its form was open.
+      editButton.disabled = !!row.querySelector(".platform-church-editor");
+      save.disabled = cancel.disabled = nameInput.disabled = websiteInput.disabled = false;
+      save.textContent = "Save";
+    }
   });
 }
 
@@ -1524,6 +1797,7 @@ async function isPlatformAdmin(user){
 }
 
 function openPlatformAdministration(){
+  clearPlatformDashboard();
   const url = new URL(window.location.href);
   url.search = "";
   url.searchParams.set("platform", "admin");
@@ -1554,6 +1828,7 @@ async function updatePlatformAdminButton(){
 }
 
 function showPlatformAdmin(){
+  document.getElementById("staffManagementView").classList.add("hidden");
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
   document.getElementById("adminLoginView").classList.add("hidden");
@@ -1620,6 +1895,7 @@ async function loadChurchForAuthenticatedUser(churchId){
 }
 
 async function adminLogout(){
+  clearPlatformDashboard(!PLATFORM_DASHBOARD_CHURCH_ID);
   await supabaseClient.auth.signOut();
 
   const platformButton = document.getElementById("platformAdminButton");
@@ -1645,6 +1921,9 @@ async function adminLogout(){
 }
 
 async function protectAdminView(){
+  if (PLATFORM_DASHBOARD_CHURCH_ID && new URLSearchParams(window.location.search).get("dashboard") !== PLATFORM_DASHBOARD_CHURCH_ID) {
+    openPlatformAdministration(); return;
+  }
   const adminView = document.getElementById("adminView");
 
   if (adminView.classList.contains("hidden")) return;
@@ -1652,6 +1931,7 @@ async function protectAdminView(){
   const { data } = await supabaseClient.auth.getSession();
 
   if (!data.session) {
+    clearPlatformDashboard(!PLATFORM_DASHBOARD_CHURCH_ID);
     adminView.classList.add("hidden");
     showRegistration();
   }
@@ -1818,6 +2098,7 @@ function showAdminTab(tab){
   }
 }
 function showStaffManagementView(){
+  if (PLATFORM_DASHBOARD_CHURCH_ID) return;
   if (CURRENT_STAFF_ROLE !== "admin") return;
   document.getElementById("resetPasswordView").classList.add("hidden");
 
@@ -1890,6 +2171,7 @@ async function renderStaffManagement(){
 }
 
 async function removeChurchStaff(userId, name, status){
+  if (PLATFORM_DASHBOARD_CHURCH_ID) return;
   if (CURRENT_STAFF_ROLE !== "admin" || !userId) return;
 
   const { data: authData } = await supabaseClient.auth.getUser();
@@ -2084,6 +2366,8 @@ async function openVisitorDetail(visitorId, source="list"){
   const visitor = window.allVisitors?.find(x => x.id === visitorId);
   if (!visitor) return;
 
+  const detailEpoch = DASHBOARD_EPOCH, detailChurchId = CHURCH_ID;
+  window.currentVisitorId = visitor.id;
   window.visitorDetailSource = source;
 
   document.getElementById("listTab").classList.add("hidden");
@@ -2107,10 +2391,17 @@ async function openVisitorDetail(visitorId, source="list"){
     visitor.photo_url &&
     ["admin", "outreach"].includes(CURRENT_STAFF_ROLE)
   ) {
-    const { data: signedPhoto, error: photoError } =
-      await supabaseClient.storage
-        .from("visitor-photos")
-        .createSignedUrl(visitor.photo_url, 300);
+    let signedPhoto, photoError;
+    try {
+      if (PLATFORM_DASHBOARD_CHURCH_ID === detailChurchId) {
+        const result = await invokeManageChurch({ action: "dashboard_photo", churchId: detailChurchId, visitorId: visitor.id });
+        if (result.churchId !== detailChurchId || result.visitorId !== visitor.id) throw new Error("Photo context mismatch.");
+        signedPhoto = { signedUrl: result.signedUrl };
+      } else {
+        ({ data: signedPhoto, error: photoError } = await supabaseClient.storage.from("visitor-photos").createSignedUrl(visitor.photo_url, 300));
+      }
+    } catch (error) { photoError = error; }
+    if (DASHBOARD_EPOCH !== detailEpoch || CHURCH_ID !== detailChurchId || window.currentVisitorId !== visitor.id) return;
 
     if (!photoError && signedPhoto?.signedUrl) {
       photo.src = signedPhoto.signedUrl;
@@ -2173,6 +2464,7 @@ async function openVisitorDetail(visitorId, source="list"){
 }
 
 async function saveFollowUp(){
+  if (PLATFORM_DASHBOARD_CHURCH_ID) return;
   const visitorId = window.currentVisitorId;
   if (!visitorId) return;
 
@@ -2720,8 +3012,58 @@ function isStaffInvitationLink(){
          initialQuery.get("type") === "invite";
 }
 
+let ACCEPTING_PLATFORM_ADMIN_INVITATION = false;
+async function completePlatformAdministratorInvitation(){
+  if (ACCEPTING_PLATFORM_ADMIN_INVITATION) return;
+  ACCEPTING_PLATFORM_ADMIN_INVITATION = true;
+  try {
+    const { data: auth, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !auth?.user) throw new Error("Sign in to accept this invitation.");
+    await loadChurchConfiguration();
+    if (!CHURCH_ID) throw new Error("Invitation church could not be found.");
+    const membershipQuery = () => supabaseClient.from("church_users")
+      .select("church_id,role,invitation_status").eq("church_id", CHURCH_ID).eq("user_id", auth.user.id).maybeSingle();
+    const before = await membershipQuery();
+    if (before.error || before.data?.role !== "admin" || !["invited", "active"].includes(before.data.invitation_status)) {
+      throw new Error("No pending administrator invitation exists for this church.");
+    }
+    const activated = await supabaseClient.rpc("activate_my_church_membership", { target_church_id: CHURCH_ID });
+    if (activated.error || activated.data !== true) throw new Error("Unable to activate your administrator invitation.");
+    const after = await membershipQuery();
+    if (after.error || after.data?.role !== "admin" || after.data?.invitation_status !== "active") throw new Error("Active administrator access could not be verified.");
+    await loadChurchForAuthenticatedUser(CHURCH_ID);
+    const url = new URL(window.location.href); url.searchParams.delete("admin_invitation"); url.hash = "";
+    history.replaceState(null, "", url);
+    showAdmin("admin");
+    await updatePlatformAdminButton();
+  } catch (error) {
+    await supabaseClient.auth.signOut();
+    showAdminLogin();
+    const message = document.getElementById("adminLoginError");
+    message.textContent = error?.message || "Unable to accept invitation. Please sign in or request another invitation.";
+    message.classList.remove("hidden");
+  } finally {
+    ACCEPTING_PLATFORM_ADMIN_INVITATION = false;
+  }
+}
+
 supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (event === "SIGNED_OUT") {
+    const wasPlatform = !!PLATFORM_DASHBOARD_CHURCH_ID;
+    clearPlatformDashboard(!wasPlatform);
+    if (wasPlatform) showAdminLogin();
+    return;
+  }
   const inviteSession = session && isStaffInvitationLink();
+  const initialType = new URLSearchParams(INITIAL_AUTH_HASH.replace(/^#/, "")).get("type");
+  const currentType = new URLSearchParams(window.location.hash.replace(/^#/, "")).get("type");
+  if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION") &&
+      new URLSearchParams(window.location.search).get("admin_invitation") === "1" &&
+      (initialType === "magiclink" || currentType === "magiclink")) {
+    // Supabase calls must run after this synchronous auth callback releases.
+    setTimeout(() => { completePlatformAdministratorInvitation(); }, 0);
+    return;
+  }
 
   if (event === "PASSWORD_RECOVERY" ||
       ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && inviteSession)) {
@@ -2771,6 +3113,13 @@ document.getElementById("adminLoginForm").addEventListener("submit", async e => 
       errorBox.textContent =
         "This account does not have Platform Administrator access.";
       errorBox.classList.remove("hidden");
+      return;
+    }
+
+    // Newly issued platform invitations use the same fail-closed acceptance
+    // checks after password setup as existing-account magic links.
+    if (params.get("admin_invitation") === "1") {
+      await completePlatformAdministratorInvitation();
       return;
     }
 
@@ -3008,6 +3357,8 @@ document.getElementById("visitorForm").addEventListener("submit", async e=>{
   }
 });
 async function renderAdmin(){
+  const requestChurchId = CHURCH_ID, requestEpoch = DASHBOARD_EPOCH;
+  const stillCurrent = () => CHURCH_ID === requestChurchId && DASHBOARD_EPOCH === requestEpoch;
   const rows = document.getElementById("visitorRows");
 
   // MEDIA: only load names approved for the Welcome Screen.
@@ -3017,6 +3368,7 @@ async function renderAdmin(){
       { target_church_id: CHURCH_ID }
     );
 
+    if (!stillCurrent()) return;
     if (error) {
       console.error("Media welcome screen error:", error);
       document.getElementById("welcomeNames").textContent =
@@ -3042,6 +3394,7 @@ async function renderAdmin(){
       { target_church_id: CHURCH_ID }
     );
 
+    if (!stillCurrent()) return;
     if (error) {
       console.error("Greeter visitor error:", error);
       rows.innerHTML =
@@ -3069,6 +3422,7 @@ async function renderAdmin(){
       }
     }
 
+    if (!stillCurrent()) return;
     window.currentVisitors = visitors;
     window.allVisitors = visitors;
 
@@ -3102,12 +3456,15 @@ async function renderAdmin(){
     return;
   }
 
-  // ADMIN + OUTREACH: full visitor data permitted by RLS.
-  const { data: visitors, error } = await supabaseClient
-    .from("visitors")
-    .select("*")
-    .eq("church_id", CHURCH_ID)
-    .order("created_at", { ascending: false });
+  // Platform reads were verified and scoped by manage-church, without memberships.
+  let visitors, error;
+  if (PLATFORM_DASHBOARD_CHURCH_ID === requestChurchId) {
+    visitors = PLATFORM_DASHBOARD_VISITORS;
+  } else {
+    ({ data: visitors, error } = await supabaseClient.from("visitors").select("*")
+      .eq("church_id", requestChurchId).order("created_at", { ascending: false }));
+  }
+  if (!stillCurrent()) return;
 
   if (error) {
     console.error("Visitor dashboard error:", error);
@@ -3342,6 +3699,7 @@ function renderFollowUpQueue(){
 }
 
 async function renderWelcome(visitors=null){
+  const welcomeEpoch = DASHBOARD_EPOCH, welcomeChurchId = CHURCH_ID;
   let v = visitors;
 
   if (!v) {
@@ -3362,6 +3720,7 @@ async function renderWelcome(visitors=null){
     v = data || [];
   }
 
+  if (welcomeEpoch !== DASHBOARD_EPOCH || welcomeChurchId !== CHURCH_ID) return;
   const approvedVisitors =
     CURRENT_STAFF_ROLE === "media"
       ? v
