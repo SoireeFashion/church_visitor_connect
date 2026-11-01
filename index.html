@@ -1620,6 +1620,17 @@ function showPlatformChurchEditor(church, row, nameDisplay, actions, editButton)
   websiteInput.placeholder = "https://example.org";
   websiteInput.value = church.website_url || "";
 
+  const trialLabel = document.createElement("label");
+  trialLabel.className = "choice";
+  trialLabel.style.cssText = "display:flex;align-items:center;gap:14px;margin-top:18px;padding:16px 18px";
+  const trialInput = document.createElement("input");
+  trialInput.type = "checkbox";
+  trialInput.checked = !!church.trial_ends_at;
+  trialInput.style.cssText = "width:24px;height:24px;min-width:24px;accent-color:#8b5e3c;cursor:pointer";
+  const trialText = document.createElement("span");
+  trialText.textContent = "Trial Account — full access through December 31, 2026";
+  trialLabel.append(trialInput, trialText);
+
   const help = document.createElement("div");
   help.className = "subtle";
   help.style.marginTop = "8px";
@@ -1640,7 +1651,7 @@ function showPlatformChurchEditor(church, row, nameDisplay, actions, editButton)
   const close = () => { form.remove(); editButton.disabled = false; editButton.focus(); };
   cancel.onclick = close;
   controls.append(save, cancel);
-  form.append(nameLabel, nameInput, websiteLabel, websiteInput, help, message, controls);
+  form.append(nameLabel, nameInput, websiteLabel, websiteInput, trialLabel, help, message, controls);
   row.append(form);
   nameInput.focus();
 
@@ -1655,27 +1666,29 @@ function showPlatformChurchEditor(church, row, nameDisplay, actions, editButton)
     const buttons = Array.from(actions.querySelectorAll("button"));
     const previousDisabled = buttons.map(button => button.disabled);
     buttons.forEach(button => { button.disabled = true; });
-    save.disabled = cancel.disabled = nameInput.disabled = websiteInput.disabled = true;
+    save.disabled = cancel.disabled = nameInput.disabled = websiteInput.disabled = trialInput.disabled = true;
     save.textContent = "Saving...";
     try {
-      const data = await invokeManageChurch({ action: "update_church", churchId: church.id, name, websiteUrl });
+      const data = await invokeManageChurch({ action: "update_church", churchId: church.id, name, websiteUrl, isTrial: trialInput.checked });
       if (!data.church || data.church.id !== church.id || data.church.slug !== church.slug) {
         throw new Error("Unable to verify saved church details. Refresh the church list before trying again.");
       }
       church.name = data.church.name;
       church.website_url = data.church.website_url;
+      church.trial_ends_at = data.church.trial_ends_at;
       nameDisplay.textContent = church.name;
       row.querySelector(".platform-qr-panel")?.remove();
       row.querySelector("[data-qr-button='true']")?.replaceChildren(document.createTextNode("Generate QR Code"));
       setPlatformChurchListMessage(`Church details saved for ${church.name}. Registration link unchanged.`);
       close();
+      await loadPlatformChurches();
     } catch (error) {
       message.textContent = error?.message || "Unable to save church details. Please try again.";
     } finally {
       buttons.forEach((button, index) => { button.disabled = previousDisabled[index]; });
       // The Edit button was disabled while its form was open.
       editButton.disabled = !!row.querySelector(".platform-church-editor");
-      save.disabled = cancel.disabled = nameInput.disabled = websiteInput.disabled = false;
+      save.disabled = cancel.disabled = nameInput.disabled = websiteInput.disabled = trialInput.disabled = false;
       save.textContent = "Save";
     }
   });
