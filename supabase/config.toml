@@ -1,0 +1,10 @@
+# Preserve deployed create-church v13: it authenticates via createSupabaseContext
+# and verifies Platform Administrator authority before using server credentials.
+[functions.create-church]
+verify_jwt = false
+
+[functions.manage-church]
+verify_jwt = true
+
+[functions.church-visitor-photo]
+verify_jwt = true

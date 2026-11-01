@@ -692,6 +692,11 @@
         />
       </div>
 
+      <label class="choice" style="margin-top:14px">
+        <input id="platformTrialAccount" type="checkbox" />
+        <span>Trial Account — full access through December 31, 2026 (America/Chicago)</span>
+      </label>
+
       <div
         id="platformChurchMessage"
         class="hidden"
@@ -789,7 +794,15 @@
     </div>
   </section>
 
+  <section id="trialExpiredView" class="card hidden">
+    <h2>Trial Account access unavailable</h2>
+    <p id="trialExpiredMessage" role="status"></p>
+    <p>Your church account and visitor records are preserved. Contact Platform Administration for assistance.</p>
+    <button class="btn-ghost" type="button" onclick="showGlobalStaffLogin()">Back to Staff Login</button>
+  </section>
+
   <section id="adminView" class="hidden">
+    <div id="trialAccountBadge" class="subtle hidden" style="margin-bottom:12px">Trial Account</div>
     <div id="platformDashboardBanner" class="card hidden" style="margin-bottom:16px">
       <strong id="platformDashboardIdentity"></strong>
       <div class="subtle" style="margin:8px 0">Viewing this church as SuperAdmin. Visitor and staff records are unchanged.</div>
@@ -1054,6 +1067,7 @@ function toggleInviter(){
   }
 }
 function showRegistration(reset=false){
+  document.getElementById("trialExpiredView")?.classList.add("hidden");
   document.getElementById("resetPasswordView").classList.add("hidden");
   document.getElementById("registrationView").classList.remove("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
@@ -1073,7 +1087,51 @@ function showRegistration(reset=false){
     photoData="";
   }
 }
+// The database and server endpoints enforce access independently of this UI.
+const CHURCH_PHOTO_URLS = new Set();
+async function loadProtectedVisitorPhoto(visitorId){
+  const churchId = CHURCH_ID, epoch = DASHBOARD_EPOCH;
+  const { data, error } = await supabaseClient.functions.invoke("church-visitor-photo", { body: { churchId, visitorId } });
+  if (error || !(data instanceof Blob)) return { error: error || new Error("Photo unavailable") };
+  if (churchId !== CHURCH_ID || epoch !== DASHBOARD_EPOCH) return { error: new Error("Photo context changed") };
+  const url = URL.createObjectURL(data); CHURCH_PHOTO_URLS.add(url);
+  return { data: { signedUrl: url } };
+}
+function showTrialAccessUnavailable(message){
+  clearPlatformDashboard(true);
+  for (const id of ["adminView", "staffManagementView", "registrationView", "thankYouView", "adminLoginView", "platformAdminView", "getVisitorConnectView", "landingView"]) {
+    document.getElementById(id)?.classList.add("hidden");
+  }
+  document.getElementById("trialExpiredMessage").textContent = message;
+  document.getElementById("trialExpiredView").classList.remove("hidden");
+}
+async function guardChurchTrial(role){
+  const churchId = CHURCH_ID, epoch = DASHBOARD_EPOCH;
+  const badge = document.getElementById("trialAccountBadge");
+  badge?.classList.add("hidden");
+  if (PLATFORM_DASHBOARD_CHURCH_ID) {
+    if (CURRENT_CHURCH?.trial_active === true) badge?.classList.remove("hidden");
+    return true; // verified manage-church authorizes and supplies this dashboard
+  }
+  try {
+    const { data, error } = await supabaseClient.rpc("my_church_access", { target_church_id: churchId });
+    if (churchId !== CHURCH_ID || epoch !== DASHBOARD_EPOCH) return false;
+    const access = data?.[0];
+    if (error || access?.church_id !== churchId || access.role !== role) throw new Error("Unable to verify church access. Please sign in again.");
+    if (access.access_allowed !== true) {
+      showTrialAccessUnavailable("This Trial Account has expired."); return false;
+    }
+    document.getElementById("trialExpiredView").classList.add("hidden");
+    if (access.trial_active === true) badge?.classList.remove("hidden");
+    return true;
+  } catch (_) {
+    if (churchId === CHURCH_ID && epoch === DASHBOARD_EPOCH) showTrialAccessUnavailable("Unable to verify church access. Please sign in again.");
+    return false;
+  }
+}
+
 function showGetVisitorConnect(){
+  document.getElementById("trialExpiredView")?.classList.add("hidden");
   document.querySelector(".app > header").classList.add("hidden");
   document.getElementById("landingView").classList.add("hidden");
   document.getElementById("getVisitorConnectView").classList.remove("hidden");
@@ -1103,6 +1161,7 @@ function showGlobalStaffLogin(){
 }
 
 function showPublicLanding(){
+  document.getElementById("trialExpiredView")?.classList.add("hidden");
   document.querySelector(".app > header").classList.add("hidden");
   document.getElementById("landingView").classList.remove("hidden");
   document.getElementById("getVisitorConnectView").classList.add("hidden");
@@ -1115,6 +1174,7 @@ function showPublicLanding(){
 }
 
 function showAdminLogin(){
+  document.getElementById("trialExpiredView")?.classList.add("hidden");
   document.getElementById("resetPasswordView").classList.add("hidden");
   const password = document.getElementById("adminPassword");
   const showPassword = document.getElementById("showAdminPassword");
@@ -1146,7 +1206,8 @@ async function createPlatformChurch(event){
     slug: document.getElementById("platformChurchSlug").value.trim(),
     adminFirstName: document.getElementById("platformAdminFirstName").value.trim(),
     adminLastName: document.getElementById("platformAdminLastName").value.trim(),
-    adminEmail: document.getElementById("platformAdminInviteEmail").value.trim()
+    adminEmail: document.getElementById("platformAdminInviteEmail").value.trim(),
+    isTrial: document.getElementById("platformTrialAccount").checked
   };
 
   message.classList.add("hidden");
@@ -1262,6 +1323,9 @@ let PLATFORM_DASHBOARD_VISITORS = [];
 let DASHBOARD_EPOCH = 0;
 
 function clearPlatformDashboard(keepChurch=false){
+  for (const url of CHURCH_PHOTO_URLS) URL.revokeObjectURL(url);
+  CHURCH_PHOTO_URLS.clear();
+  document.getElementById("trialAccountBadge")?.classList.add("hidden");
   const previousId = CHURCH_ID, previousChurch = CURRENT_CHURCH;
   DASHBOARD_EPOCH++;
   PLATFORM_DASHBOARD_CHURCH_ID = null;
@@ -1315,7 +1379,7 @@ async function viewPlatformChurchDashboard(church, button){
     const url = new URL(window.location.href);
     url.search = ""; url.searchParams.set("platform", "admin"); url.searchParams.set("dashboard", church.id);
     history.pushState(null, "", url);
-    showAdmin("admin");
+    await showAdmin("admin");
     document.getElementById("manageStaffButton").classList.add("hidden");
     ["followUpStatus", "followUpNotes", "saveFollowUpButton"].forEach(id => { document.getElementById(id).disabled = true; });
     setPlatformChurchListMessage("");
@@ -1458,6 +1522,10 @@ async function loadPlatformChurches(){
     slug.style.marginTop = "4px";
     slug.textContent = `Registration: ${platformRegistrationUrl(church.slug)}`;
     info.append(name, slug);
+    if (church.trial_active === true) {
+      const badge = document.createElement("div"); badge.className = "subtle";
+      badge.textContent = "Trial Account"; info.append(badge);
+    }
 
     const actions = document.createElement("div");
     actions.style.display = "flex";
@@ -1828,6 +1896,7 @@ async function updatePlatformAdminButton(){
 }
 
 function showPlatformAdmin(){
+  document.getElementById("trialExpiredView")?.classList.add("hidden");
   document.getElementById("staffManagementView").classList.add("hidden");
   document.getElementById("registrationView").classList.add("hidden");
   document.getElementById("thankYouView").classList.add("hidden");
@@ -1942,7 +2011,8 @@ window.addEventListener("popstate", protectAdminView);
 
 let CURRENT_STAFF_ROLE = null;
 
-function showAdmin(role="admin"){
+async function showAdmin(role="admin"){
+  if (!await guardChurchTrial(role)) return;
   document.getElementById("resetPasswordView").classList.add("hidden");
   const dashboardTitles = {
     admin: {
@@ -2097,7 +2167,8 @@ function showAdminTab(tab){
     }
   }
 }
-function showStaffManagementView(){
+async function showStaffManagementView(){
+  if (!await guardChurchTrial(CURRENT_STAFF_ROLE)) return;
   if (PLATFORM_DASHBOARD_CHURCH_ID) return;
   if (CURRENT_STAFF_ROLE !== "admin") return;
   document.getElementById("resetPasswordView").classList.add("hidden");
@@ -2131,6 +2202,7 @@ function staffRoleLabel(role){
 }
 
 async function renderStaffManagement(){
+  if (!await guardChurchTrial(CURRENT_STAFF_ROLE)) return;
   if (CURRENT_STAFF_ROLE !== "admin") return;
 
   const rows = document.getElementById("staffRows");
@@ -2398,7 +2470,7 @@ async function openVisitorDetail(visitorId, source="list"){
         if (result.churchId !== detailChurchId || result.visitorId !== visitor.id) throw new Error("Photo context mismatch.");
         signedPhoto = { signedUrl: result.signedUrl };
       } else {
-        ({ data: signedPhoto, error: photoError } = await supabaseClient.storage.from("visitor-photos").createSignedUrl(visitor.photo_url, 300));
+        ({ data: signedPhoto, error: photoError } = await loadProtectedVisitorPhoto(visitor.id));
       }
     } catch (error) { photoError = error; }
     if (DASHBOARD_EPOCH !== detailEpoch || CHURCH_ID !== detailChurchId || window.currentVisitorId !== visitor.id) return;
@@ -3034,7 +3106,7 @@ async function completePlatformAdministratorInvitation(){
     await loadChurchForAuthenticatedUser(CHURCH_ID);
     const url = new URL(window.location.href); url.searchParams.delete("admin_invitation"); url.hash = "";
     history.replaceState(null, "", url);
-    showAdmin("admin");
+    await showAdmin("admin");
     await updatePlatformAdminButton();
   } catch (error) {
     await supabaseClient.auth.signOut();
@@ -3178,7 +3250,7 @@ document.getElementById("adminLoginForm").addEventListener("submit", async e => 
       console.error("Membership activation error:", activationError);
     }
 
-    showAdmin(membership.role || "admin");
+    await showAdmin(membership.role || "admin");
     await updatePlatformAdminButton();
 
   } catch (error) {
@@ -3357,6 +3429,7 @@ document.getElementById("visitorForm").addEventListener("submit", async e=>{
   }
 });
 async function renderAdmin(){
+  if (!await guardChurchTrial(CURRENT_STAFF_ROLE)) return;
   const requestChurchId = CHURCH_ID, requestEpoch = DASHBOARD_EPOCH;
   const stillCurrent = () => CHURCH_ID === requestChurchId && DASHBOARD_EPOCH === requestEpoch;
   const rows = document.getElementById("visitorRows");
@@ -3410,9 +3483,7 @@ async function renderAdmin(){
 
       if (visitor.photo_url) {
         const { data: signedPhoto, error: photoError } =
-          await supabaseClient.storage
-            .from("visitor-photos")
-            .createSignedUrl(visitor.photo_url, 300);
+          await loadProtectedVisitorPhoto(visitor.id);
 
         if (!photoError && signedPhoto?.signedUrl) {
           visitor.signed_photo_url = signedPhoto.signedUrl;
@@ -3745,6 +3816,15 @@ function esc(s=""){
 
 
 
+</script>
+<script>
+// Display refresh only; RLS checks database time on every protected request.
+setInterval(async () => {
+  if (!document.getElementById("adminView").classList.contains("hidden") ||
+      !document.getElementById("staffManagementView").classList.contains("hidden")) {
+    await guardChurchTrial(CURRENT_STAFF_ROLE);
+  }
+}, 60000);
 </script>
 </body>
 </html>
